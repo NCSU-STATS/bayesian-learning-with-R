@@ -1,0 +1,137 @@
+---
+title: "Applied Bayesian Analysis : NCSU ST 540"
+subtitle: "Homework 1"
+author: "Bruce Campbell"
+fontsize: 11pt
+output: pdf_document
+bibliography: BruceCampbell_ST540_HW_1.bib
+---
+
+---
+```{r setup, include=FALSE,echo=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dev = 'pdf')
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(tidy=FALSE)
+knitr::opts_chunk$set(prompt=FALSE)
+knitr::opts_chunk$set(fig.height=3)
+knitr::opts_chunk$set(fig.width=3)
+knitr::opts_chunk$set(warning=FALSE)
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_knit$set(root.dir = ".")
+library(latex2exp)   
+library(pander)
+library(ggplot2)
+library(GGally)
+```
+
+
+## 1) ESP Paper  Commentary
+
+*Read the paper "Miller G (2011). ESP paper rekindles discussion about statistics. Science,21, 272-273" and write a one-paragraph summary.*
+
+In the Miler paper [@Miller272] an argument is put forth that the use of null hypothesis significance testing [NHST] in the social sciences comes with risk of misinterpretation and provides a basis upon which spurious results may be published.  The authors are discussing a recent publication [@Bem2011] purporting to have found statistically significant evidence in favor of ESP. It is (correctly) argued that the misinterpretation of what a p-value is and the meaning of statistically significant results led the author to make dubious conclusions about ESP.  A call is made to the scientific community to bring Bayesian analysis back to the social sciences. It's argued that the ability to include prior information into model parameters, to calculate probabilities on the model parameter space,  and to update Bayesian models with new data make Bayesian analysis easier to interpret and less prone to misinterpretation.  The main objection to Bayesian analysis regarding the subjectivity of the prior is acknowledged in the paper.  Of course Bayesian analysis is subject to being abused as well as NHST it's just harder to hide the abuse when using Bayesian analysis. The main argument that causality and reason be part of any statistical analysis is long overdue.  Extraordinary claims require extraordinary analysis.
+
+
+## 2) Ozone Data Analysis
+
+*Load the ozone data from the course webpage. This dataset has daily ozone values for n = 1106 monitoring stations and m = 31 days in July 2005.*
+
+```{r}
+rm(list = ls())
+setwd("C:/E/brucebcampbell-git/bayesian-learning-with-R")
+df <- read.csv("ozone.csv",header = TRUE)
+```
+
+### (a) Create a table with the overall (across sites and days) mean, standard deviation, and
+percent missing.
+
+```{r}
+#Remove the id column and collapse the remaining columns into a single one.  
+df.data <- df
+df.data$Station.ID <- NULL
+
+raw.data <-unlist(df.data)
+mean.raw <- mean(raw.data,na.rm = TRUE)
+sd.raw <- sd(raw.data,na.rm = TRUE)
+nan.count.raw <- sum(is.na(raw.data))
+nan.proportion.raw <- nan.count.raw / length(raw.data) 
+
+pander(data.frame(mean = mean.raw, 
+                  sd = sd.raw, 
+                  percent.missing =nan.proportion.raw*100), "ozone side-days merged summary stats")
+```
+
+### (b) Write a loop to compute the mean, variance, and percent missing for each of the n sites;
+make a histogram of each variable (all three histograms should have n observations);
+create scatter plots of each pair of these variables (each of the three plots should have n
+points).
+
+
+```{r}
+#df.data is the data without the station id variable.
+row.mean <- matrix(nrow = 1,ncol = nrow(df.data))
+row.sd <- matrix(nrow = 1,ncol = nrow(df.data))
+row.percent.missing <- matrix(nrow = 1,ncol = nrow(df.data))
+for( i in 1:nrow(df.data))
+{
+  row.data <- df.data[i,]
+  
+  row.mean.no.nan <- df.data[i,is.na(df.data[i,])==FALSE]
+  row.mean[1,i]<- mean(as.numeric(row.mean.no.nan))
+  row.sd[1,i] <- sd(row.data,na.rm = TRUE)
+
+  row.nan.count.raw <- sum(is.na(row.data))
+  row.percent.missing[1,i] <- 100* row.nan.count.raw / length(df.data) 
+}
+
+df.row.summary <- data.frame(row.mean=row.mean[1,], 
+                             row.sd=row.sd[1,],
+                             row.percent.missing=row.percent.missing[1,])
+
+ggplot(df.row.summary,aes(x=row.mean))+
+  geom_histogram()+ggtitle("site means")
+
+ggplot(df.row.summary,aes(x=row.sd))+
+  geom_histogram() +ggtitle("site standard deviations")
+
+ggplot(df.row.summary,aes(x=row.percent.missing))+
+  geom_histogram() +ggtitle("site percent missing")
+
+```
+
+
+### (c) Conduct a linear regression with response equal to the site's mean and the site's variance
+and percent missing as covariates
+
+
+```{r}
+#First we plot the data  
+p <- ggplot(df.row.summary, aes(x = row.sd^2, y = row.percent.missing))+ 
+  geom_point(aes(col = row.mean))
+p + scale_colour_gradientn(colours=c("green","black")) + 
+  theme_bw()+ggtitle("predictors colored by response")
+
+#Fit the model
+lm.fit <- lm(row.mean ~ row.sd^2 + row.percent.missing, data = df.row.summary)
+summary(lm.fit)
+
+#Calculate residual correlation
+u<- residuals(lm.fit)[-length(residuals(lm.fit))]
+v <- residuals(lm.fit)[-1]
+cor.residuals <- cor(v,u)
+pander(data.frame(cor.residuals=cor.residuals), caption = "residual correlation")
+
+#Cookes distance and leverage plots.
+#plot(lm.fit,which =4)
+#plot(lm.fit,which = 5)
+```
+
+
+```
+
+
+## Bibliography
+
+
