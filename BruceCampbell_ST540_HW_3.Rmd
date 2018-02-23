@@ -116,26 +116,34 @@ pander(data.frame(names= NBA_Data$PlayerName, posterior.mean=NBA_Data$posteriorM
 ```
 
 
-### Testing the hypothesis that the cluster proportion is less than the overall proportion
+### Testing the hypothesis that the clutch proportion is less than the overall proportion
 
-Here we calculate $P(\theta | Y < p_i)$ and report the probability. We convert this to a hypothesis test at $alpha=0.1$
+Here we test using the principle of MAP - maximum a poseritori. We are performing the test $H_0 : \; \frac{Y}{N} <p$ versus the slternative $H_A : \; \frac{Y}{N} \geq p$.  We'll use the posterior distribution to perform the test and will accept $H_0$ when $P(H_0 | Y) > P(H_A |Y)$
 
 ```{r}
-NBA_Data[,'posteriorProbTest'] <-  NA
+NBA_Data[,'posteriorProbC'] <-  NA
+NBA_Data[,'posteriorProbP'] <-  NA
+
 NBA_Data[,'testResult'] <-  NA
+
 for(i in 1:nrow(NBA_Data))
 {
   a <- NBA_Data[i,]$posteriorA
   b <- NBA_Data[i,]$posteriorB
   p <- NBA_Data[i,]$proportion
+
+  N <- NBA_Data[i,]$ClutchAttempts
+  Y <- NBA_Data[i,]$ClutchMakes
   
-  NBA_Data[i,]$posteriorProbTest <- pbeta(p,a,b)
+  NBA_Data[i,]$posteriorProbP <- pbeta(p,a,b)
   
-  NBA_Data[i,]$testResult <-NBA_Data[i,]$posteriorProbTest>=0.1
+  NBA_Data[i,]$posteriorProbC <- pbeta(Y/N,a,b)
+  
+  NBA_Data[i,]$testResult <- (NBA_Data[i,]$posteriorProbC <NBA_Data[i,]$posteriorProbP)
   
 }
 
-pander(data.frame(name = NBA_Data$PlayerName, posterior.probability = NBA_Data$posteriorProbTest, test.result =NBA_Data$testResult))
+pander(data.frame(name = NBA_Data$PlayerName, overall = NBA_Data$posteriorProbP,clutch = NBA_Data$posteriorProbC, test.result =NBA_Data$testResult))
 ```
 
 ### Sensitivity Analysis
@@ -143,8 +151,9 @@ pander(data.frame(name = NBA_Data$PlayerName, posterior.probability = NBA_Data$p
 Here we calculate the sensitivity of the results to the choice of prior.  We redo the hypothesis test using the completely uninformative prior $Beta(1,1)$ first and extend to priors with smaller $\kappa$ if necessary.  
 
 ```{r}
-NBA_Data[,'uninformativePosteriorProbTest'] <-  NA
 NBA_Data[,'uninformativeTestResult'] <-  NA
+NBA_Data[,'uninformativePosteriorProbC'] <-  NA
+NBA_Data[,'uninformativePosteriorProbP'] <-  NA
 
 for(i in 1: nrow(NBA_Data))
 {
@@ -160,15 +169,46 @@ for(i in 1: nrow(NBA_Data))
   posteriorA <- Y + a
   posteriorB <- N - Y + b
   
-  NBA_Data[i,]$uninformativePosteriorProbTest <- pbeta(p,posteriorA,posteriorB)
+  NBA_Data[i,]$uninformativePosteriorProbP <- pbeta(p,posteriorA,posteriorB)
   
-  NBA_Data[i,]$uninformativeTestResult <-NBA_Data[i,]$uninformativePosteriorProbTest>=0.1
+  NBA_Data[i,]$uninformativePosteriorProbC <- pbeta(Y/N,posteriorA,posteriorB)
+
+  NBA_Data[i,]$uninformativeTestResult <- (NBA_Data[i,]$uninformativePosteriorProbC <NBA_Data[i,]$uninformativePosteriorProbP)
   
 }
 
-pander(data.frame(name = NBA_Data$PlayerName, posterior.probability = NBA_Data$uninformativePosteriorProbTest, test.result =NBA_Data$uninformativeTestResult))
+pander(data.frame(name = NBA_Data$PlayerName, overall = NBA_Data$uninformativePosteriorProbP,clutch = NBA_Data$uninformativePosteriorProbC, test.result =NBA_Data$uninformativeTestResult))
 
-#plot(NBA_Data$posteriorProbTest-NBA_Data$uninformativePosteriorProbTest)
 ```
+We see that the test results are not senitive to the choice of prior.  This is really striking given that some of the data elemets have a low count for the attempts.  The lowest being 16. 
 
-We see that the test results are the same and looking at the probabilities they are not much different. We claim that this test is *not* sensitive to the choice of prior. 
+
+# Conjugate Prior for Independent Binomial Random Variables.
+
+Suppose $Y \sim Binomial(N,\theta)$, $Z \sim Binomial(M,\theta)$ and that $Y$ $Z$ are independent. Identify a conjugate prior and find the posterior distribution. 
+
+A conjugate prior is one that comes from a family of distributions such that when inserted into the expression for Bayes theorem results in a posterior that comes from the same family. The Beta distribution is the conjugate prior for the Binomial, Bernoulli, Geometric, and Negative Binomial likelihood distributions. There are several ways to think about this problem.  One is that both distributions come from a series of independent Bernoulli trials and we may simply calculate the posterior from the likelihood of $Y+Z$ from a $Binomial(N+M, \theta)$.  The other way is to consider the joint likelihood distribution $(Y,Z)$ and utilize the independence to factor the likelihood. We can show both methods yield the same $Beta$ posterior. 
+
+
+
+$$P(\theta | Y+Z) \propto  \binom{N+M}{Y+Z}\theta^{Y+Z} (1-\theta)^{N+M-(Y+Z)} \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}\theta^{\alpha-1}(1-\theta)^{\beta-1}$$
+Rearranging and dropping constants we have
+
+$$P(\theta | Y+Z) \propto  \theta^{\alpha+Y+Z-1} (1-\theta)^{\beta+N+M-(Y+Z)-1}$$
+
+Which we recognize to be the kernel of a $Beta(\alpha+Y+Z,\beta+N+M-(Y+Z))$ distribution. 
+
+Now let's consider the second approach
+
+$$P(\theta | Y,Z) \propto  \binom{N}{Y}\theta^{Y} (1-\theta)^{N-Y} \binom{M}{Z}\theta^{Z} (1-\theta)^{M-Z} \frac{\Gamma(\alpha+\beta)}{\Gamma(\alpha)\Gamma(\beta)}\theta^{\alpha-1}(1-\theta)^{\beta-1}$$
+
+Again rearranging and dropping constants we have
+
+$$P(\theta | Y,Z) \propto  \theta^{\alpha+Y+Z-1} (1-\theta)^{\beta+N+M-(Y+Z)-1}$$
+
+Which we again recognize to be the kernel of a $Beta(\alpha+Y+Z,\beta+N+M-(Y+Z))$ distribution. 
+
+
+
+
+

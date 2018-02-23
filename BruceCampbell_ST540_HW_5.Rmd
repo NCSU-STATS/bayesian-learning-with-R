@@ -1,0 +1,43 @@
+---
+title: "Applied Bayesian Analysis : NCSU ST 540"
+subtitle: "Homework 5"
+author: "Bruce Campbell"
+fontsize: 11pt
+output: pdf_document
+bibliography: BruceCampbell_ST540_HW_1.bib
+---
+
+---
+```{r setup, include=FALSE,echo=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dev = 'pdf')
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(tidy=TRUE)
+knitr::opts_chunk$set(prompt=FALSE)
+knitr::opts_chunk$set(fig.height=5)
+knitr::opts_chunk$set(fig.width=7)
+knitr::opts_chunk$set(warning=FALSE)
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_knit$set(root.dir = ".")
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
+
+library(latex2exp)   
+library(pander)
+library(ggplot2)
+library(GGally)
+```
+
+let $Y_i$ be the number of concussions from team $i = 1, ..., 32$. The model is 
+$$Y_i|\lambda_i \sim Poisson(\lambda_i)$$
+and the prior is 
+$$\lambda_i|\theta \sim Gamma(1, \theta)$$ 
+where 
+$$\theta \sim Gamma(0.1, 0.1)$$.
+(1) Derive the full conditional distribution of \lambda1
+(1) Derive the full conditional distribution of \theta
+(3) Write Gibbs sampling code to draw samples from the joint distribution of $(\lambda_1, ..., \lambda_32, \theta)$.
+(4) Show trace plots of the samples for $\lambda_1$ and $\theta$.
+(5) Plot the estimated posterior mean of the $\lambda_i$ versus $Y_i$ and comment on whether the code is
+returning reasonable estimates. Turn in your solution on one piece of paper. Also, turn in MCMC code on a second piece of paper
+stapled to the solution.
