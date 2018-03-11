@@ -10,6 +10,7 @@ bibliography: BruceCampbell_ST540_HW_1.bib
 ---
 ```{r setup, include=FALSE,echo=FALSE}
 rm(list = ls())
+setwd("C:/E/brucebcampbell-git/bayesian-learning-with-R")
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(dev = 'pdf')
 knitr::opts_chunk$set(cache=TRUE)
@@ -21,7 +22,6 @@ knitr::opts_chunk$set(warning=FALSE)
 knitr::opts_chunk$set(message=FALSE)
 knitr::opts_knit$set(root.dir = ".")
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
-
 library(latex2exp)   
 library(pander)
 library(ggplot2)
@@ -29,15 +29,74 @@ library(GGally)
 ```
 
 let $Y_i$ be the number of concussions from team $i = 1, ..., 32$. The model is 
+
 $$Y_i|\lambda_i \sim Poisson(\lambda_i)$$
+
 and the prior is 
+
 $$\lambda_i|\theta \sim Gamma(1, \theta)$$ 
 where 
 $$\theta \sim Gamma(0.1, 0.1)$$.
-(1) Derive the full conditional distribution of \lambda1
-(1) Derive the full conditional distribution of \theta
+
+(1) Derive the full conditional distribution of $\lambda_1$
+
+Assuming independence of $Y_i$ we can write the full joint distribution as 
+
+$$P(Y_1, ... , Y_n, \lambda_1,...\lambda_n,\theta) \propto \prod\limits_{i=1}^{n} P(Y_i|\lambda_i) P(\lambda_i | \theta) P(\theta)   $$
+Now 
+$$ P(\lambda_1 | Y_1, ... , Y_n, \lambda_2,...\lambda_n,\theta)\propto P(Y_1|\lambda_1) P(\lambda_1 | \theta) P(\theta)\;\;\;\prod\limits_{i=2}^{n} P(Y_i|\lambda_i) P(\lambda_i | \theta)   $$
+Putting the expressions for the densities in here and dropping the product terms on the right hand side unrelated to $\lambda_1$ we have that 
+
+$$P(\lambda_1 | Y_1, ... , Y_n, \lambda_2,...\lambda_n,\theta)\propto  \frac{\lambda_1^{y_1}}{y_1!}e^{-\lambda_1} \;\;\;\theta e^{- \theta \lambda_1 } \;\;\;  \frac{(0.1)^{0.1}}{\Gamma(0.1)} \theta^{0.1-1} e^{-0.1 \;\theta} \propto \lambda_1^{(y_1+1) -1} e^{-\lambda_1 (1+\theta)}$$
+The last experssion we recognise as the kernel of a $Gamma(y_1+1,1+\theta)$ distribution. 
+
+(1) Derive the full conditional distribution of $\theta$
+
+From above, we have that 
+
+$$ P(\theta | Y_1, ... , Y_n, \lambda_1,...\lambda_n)\propto P(\theta)\;\;\;\prod\limits_{i=1}^{n} P(\lambda_i | \theta)   $$
+and putting the expression for the densities in we have
+
+$$ P(\theta | Y_1, ... , Y_n, \lambda_1,...\lambda_n)\propto \prod\limits_{i=1}^{n} \theta e^{- \theta \lambda_i } \;\;\;  \frac{(0.1)^{0.1}}{\Gamma(0.1)} \theta^{0.1-1} e^{-0.1 \;\theta} \propto \;\; \theta^{n-.9} \; e^{\theta (0.1+\sum \lambda_i)}$$
+We recognise this expression as the kernel of a $Gamma(n-0.1,0.1+ \sum \lambda_i) $ density.
+
 (3) Write Gibbs sampling code to draw samples from the joint distribution of $(\lambda_1, ..., \lambda_32, \theta)$.
+
+
+```{r}
+df <- read.csv("ConcussionsByTeamAndYear.csv",header = TRUE)
+df$sum <- df$X2012+df$X2013
+n <- nrow(df)
+m <- 1000000 #Burn in
+N <- 1000000 #Number of draws
+
+posterior.sample <- matrix(n+1,N)
+#Set the initial values to the means of the respective distributions
+
+theta.0 <- 1 #Mean of Gamma(.1,.1)
+
+lambda.0 <- matrix(data=rep(1,n),n,1) # Set to mean of Gamma(1,theta.0)
+
+
+#Initialize outside loop
+theta.t <- 1 
+lambda.t <- matrix(data=rep(1,n),n,1)
+
+for(j in  1: M+N)
+{
+  theta.t <-rgamma(1,shape = n-0.1, rate = 0.1+sum(lambda.t))
+  for(i in 1:n)
+  {
+    lambda.t[i] <- 
+    
+  }
+}
+
+```
+
 (4) Show trace plots of the samples for $\lambda_1$ and $\theta$.
 (5) Plot the estimated posterior mean of the $\lambda_i$ versus $Y_i$ and comment on whether the code is
 returning reasonable estimates. Turn in your solution on one piece of paper. Also, turn in MCMC code on a second piece of paper
 stapled to the solution.
+
+
