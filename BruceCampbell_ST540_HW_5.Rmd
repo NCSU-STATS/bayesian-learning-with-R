@@ -38,7 +38,7 @@ $$\lambda_i|\theta \sim Gamma(1, \theta)$$
 where 
 $$\theta \sim Gamma(0.1, 0.1)$$.
 
-(1) Derive the full conditional distribution of $\lambda_1$
+### Derive the full conditional distribution of $\lambda_1$
 
 Assuming independence of $Y_i$ we can write the full joint distribution as 
 
@@ -50,7 +50,7 @@ Putting the expressions for the densities in here and dropping the product terms
 $$P(\lambda_1 | Y_1, ... , Y_n, \lambda_2,...\lambda_n,\theta)\propto  \frac{\lambda_1^{y_1}}{y_1!}e^{-\lambda_1} \;\;\;\theta e^{- \theta \lambda_1 } \;\;\;  \frac{(0.1)^{0.1}}{\Gamma(0.1)} \theta^{0.1-1} e^{-0.1 \;\theta} \propto \lambda_1^{(y_1+1) -1} e^{-\lambda_1 (1+\theta)}$$
 The last experssion we recognise as the kernel of a $Gamma(y_1+1,1+\theta)$ distribution. 
 
-(1) Derive the full conditional distribution of $\theta$
+### Derive the full conditional distribution of $\theta$
 
 From above, we have that 
 
@@ -58,19 +58,19 @@ $$ P(\theta | Y_1, ... , Y_n, \lambda_1,...\lambda_n)\propto P(\theta)\;\;\;\pro
 and putting the expression for the densities in we have
 
 $$ P(\theta | Y_1, ... , Y_n, \lambda_1,...\lambda_n)\propto \prod\limits_{i=1}^{n} \theta e^{- \theta \lambda_i } \;\;\;  \frac{(0.1)^{0.1}}{\Gamma(0.1)} \theta^{0.1-1} e^{-0.1 \;\theta} \propto \;\; \theta^{n-.9} \; e^{\theta (0.1+\sum \lambda_i)}$$
-We recognise this expression as the kernel of a $Gamma(n-0.1,0.1+ \sum \lambda_i) $ density.
+We recognise this expression as the kernel of a $Gamma(n+0.1,0.1+ \sum \lambda_i)$ density.
 
-(3) Write Gibbs sampling code to draw samples from the joint distribution of $(\lambda_1, ..., \lambda_32, \theta)$.
+### Write Gibbs sampling code to draw samples from the joint distribution of $(\lambda_1, ..., \lambda_{32}, \theta)$.
 
 
 ```{r}
 df <- read.csv("ConcussionsByTeamAndYear.csv",header = TRUE)
 df$sum <- df$X2012+df$X2013
 n <- nrow(df)
-m <- 1000000 #Burn in
-N <- 1000000 #Number of draws
+M <- 10000 #Burn in
+N <- 10000 #Number of draws
 
-posterior.sample <- matrix(n+1,N)
+posterior.sample <- matrix(nrow = N,ncol = n+1)
 #Set the initial values to the means of the respective distributions
 
 theta.0 <- 1 #Mean of Gamma(.1,.1)
@@ -84,19 +84,50 @@ lambda.t <- matrix(data=rep(1,n),n,1)
 
 for(j in  1: M+N)
 {
-  theta.t <-rgamma(1,shape = n-0.1, rate = 0.1+sum(lambda.t))
+  theta.t <-rgamma(1,shape = n+0.1, rate = 0.1+sum(lambda.t))
   for(i in 1:n)
   {
-    lambda.t[i] <- 
-    
+    y.i <- df$sum[i]
+    lambda.t[i] <- rgamma(1,y.i+1,1+theta.t)
+  }
+  if(j>M)
+  {
+    sample <-  c(lambda.t,theta.t)
+    posterior.sample[j-M,]<- sample
   }
 }
 
 ```
 
-(4) Show trace plots of the samples for $\lambda_1$ and $\theta$.
+### Show trace plots of the samples for $\lambda_1$ and $\theta$.
+
+####Trace plot for $\lambda_1$
+
+```{r}
+plot(posterior.sample[,1], main = TeX("$\\lambda_1$"),pch="*")
+abline (h = mean(posterior.sample[,1]),col='red')
+abline (h = mean(df$sum[1]),col='blue')
+```
+
+
+####Trace plot for $\theta$
+```{r}
+plot(posterior.sample[,33], main = TeX("$\\theta$"),pch="*")
+```
+
+
 (5) Plot the estimated posterior mean of the $\lambda_i$ versus $Y_i$ and comment on whether the code is
 returning reasonable estimates. Turn in your solution on one piece of paper. Also, turn in MCMC code on a second piece of paper
 stapled to the solution.
+
+```{r}
+means.lambda <- as.list(colMeans(posterior.sample))
+means.lambda[[33]] <- NULL
+plot(df$sum,means.lambda)
+abline(a = 0,b = 1, col ='red')
+```
+
+We see good alignment between the values $Y_i$ and $\lambda_i$ - remember $Y \sim Pisson(\lambda) \implies E[Y]=\lambda$
+
 
 
