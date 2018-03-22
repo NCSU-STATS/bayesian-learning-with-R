@@ -6,8 +6,8 @@ fontsize: 11pt
 output: pdf_document
 bibliography: BruceCampbell_ST540_HW_1.bib
 ---
-
 ---
+
 ```{r setup, include=FALSE,echo=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
@@ -21,7 +21,6 @@ knitr::opts_chunk$set(warning=FALSE)
 knitr::opts_chunk$set(message=FALSE)
 knitr::opts_knit$set(root.dir = ".")
 knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
-
 library(latex2exp)   
 library(pander)
 library(ggplot2)
@@ -47,7 +46,7 @@ jags <- jags.model('jags_normal_model.bug',
                                'N' = N),
                    n.chains = 10,
                    n.adapt = 100)
- 
+
 update(jags, 1000)
  
 jags.samples(jags,

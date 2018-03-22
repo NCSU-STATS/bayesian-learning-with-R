@@ -129,5 +129,42 @@ abline(a = 0,b = 1, col ='red')
 
 We see good alignment between the values $Y_i$ and $\lambda_i$ - remember $Y \sim Pisson(\lambda) \implies E[Y]=\lambda$
 
+### Test - Let's validate with Jags
 
 
+```{r}
+library(rjags)
+library(coda)
+a      <- .1
+b      <- .1
+model_string <- "model{
+
+  for(i in 1:n)
+  {
+    lambda[i] ~ dgamma(1,theta)
+    # Likelihood
+    Y[i] ~ dpois(lambda[i])
+  }
+  
+  # Prior
+  theta ~ dgamma(a, b)
+}"
+Y <- df$sum
+model.concuss <- jags.model(textConnection(model_string), data = list(Y=Y,n=n,a=a,b=b))
+update(model.concuss, 10000, progress.bar="none"); # Burnin for 10000 samples
+
+samp.theta <- coda.samples(model.concuss, variable.names=c("theta"), 
+        n.iter=20000, progress.bar="none")
+
+summary(samp.theta)
+plot(samp.theta)
+
+
+samp.lambda1 <- coda.samples(model.concuss, variable.names=c("lambda[1]"), 
+        n.iter=20000, progress.bar="none")
+
+summary(samp.lambda1)
+plot(samp.lambda1)
+mean(unlist(samp.lambda1))
+
+```

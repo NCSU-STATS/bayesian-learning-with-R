@@ -1,0 +1,65 @@
+---
+title: "Applied Bayesian Analysis : NCSU ST 540"
+subtitle: "Homework 6"
+author: "Bruce Campbell"
+fontsize: 11pt
+output: pdf_document
+bibliography: BruceCampbell_ST540_HW_1.bib
+---
+
+---
+```{r setup, include=FALSE,echo=FALSE}
+rm(list = ls())
+setwd("C:/E/brucebcampbell-git/bayesian-learning-with-R")
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dev = 'pdf')
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(tidy=TRUE)
+knitr::opts_chunk$set(prompt=FALSE)
+knitr::opts_chunk$set(fig.height=5)
+knitr::opts_chunk$set(fig.width=7)
+knitr::opts_chunk$set(warning=FALSE)
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_knit$set(root.dir = ".")
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
+library(latex2exp)   
+library(pander)
+library(ggplot2)
+library(GGally)
+```
+
+For this problem we use the 2016 election data described at
+https://www4.stat.ncsu.edu/~reich/ABA/code/election2016data 
+with data provided in the R workspace 
+https://www4.stat.ncsu.edu/~reich/ABA/code/election_2008_2016.RData
+
+We restrict our analysis to the counties in North and South Carolina. In JAGS, we fit the logistic
+regression model
+P(Zi = 1) = 1
+1 + e
+???0???
+Pp
+j=1
+Xijj
+where $Z_i$ is the binary indicator that GOP support in county $i$ increased by at least 5% from 2012
+to 2016 Zi = 1 : Yi > 5 and Zi = 0 otherwise, where Y is the change variable in the R workspace.
+Xij are the covariates in the R workspace. We standardize each covariate to have mean zero and
+variance one before fitting the model. The priors are j  N(0,  2)
+(1) Fit the model with  = 1 and  = 100
+First we make some notes on the data and the preprocessing steps.
+county_facts.csv
+https://www.kaggle.com/benhamner/2016-us-election/data
+demographic data on counties from US census
+3195 rows and 54 columns.
+The metadata in the county facts table is located in a dictionary. We might need this for interpretation
+of the coefficients.
+county_facts_dictionary.csv
+description of the columns in county_facts
+https://www.kaggle.com/benhamner/2016-us-election/data
+The election data
+County_Election_08_16.csv
+https://www4.stat.ncsu.edu/~reich/ABA/code/election2016data
+county-level voting patterns in the 2016 Presidential elections
+3112 rows and 14 columns
+The county data is joined to the election data via the key fips_code. We load the processed data
+below and start our analysis with the joined dataframe all_dat.
