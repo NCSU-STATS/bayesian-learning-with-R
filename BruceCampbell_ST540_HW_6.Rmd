@@ -35,31 +35,241 @@ https://www4.stat.ncsu.edu/~reich/ABA/code/election_2008_2016.RData
 
 We restrict our analysis to the counties in North and South Carolina. In JAGS, we fit the logistic
 regression model
-P(Zi = 1) = 1
-1 + e
-???0???
-Pp
-j=1
-Xijj
+$$P(Z_i = 1) = \frac{1}{1 + e^{ \beta_0 + \sum\limits_{j=1}^{p} \beta_j X_{i\;j }  }}$$
 where $Z_i$ is the binary indicator that GOP support in county $i$ increased by at least 5% from 2012
-to 2016 Zi = 1 : Yi > 5 and Zi = 0 otherwise, where Y is the change variable in the R workspace.
-Xij are the covariates in the R workspace. We standardize each covariate to have mean zero and
-variance one before fitting the model. The priors are j  N(0,  2)
-(1) Fit the model with  = 1 and  = 100
+to 2016 $Z_i = 1 : Yi > 5$ and $Z_i = 0$ otherwise, where $Y$ is the change variable in the R workspace.
+$X_ij$ are the covariates in the R workspace. We standardize each covariate to have mean zero and
+variance one before fitting the model. The priors are $\beta_j \sim N(0, \tau^2)$
+
+##(1) Fit the model with  $\tau = 1$ and  $\tau= 100$
+
 First we make some notes on the data and the preprocessing steps.
-county_facts.csv
+
+```county_facts.csv
 https://www.kaggle.com/benhamner/2016-us-election/data
 demographic data on counties from US census
 3195 rows and 54 columns.
+```
+
 The metadata in the county facts table is located in a dictionary. We might need this for interpretation
 of the coefficients.
+```
 county_facts_dictionary.csv
 description of the columns in county_facts
 https://www.kaggle.com/benhamner/2016-us-election/data
+```
+
 The election data
+```
 County_Election_08_16.csv
 https://www4.stat.ncsu.edu/~reich/ABA/code/election2016data
 county-level voting patterns in the 2016 Presidential elections
 3112 rows and 14 columns
+```
 The county data is joined to the election data via the key fips_code. We load the processed data
 below and start our analysis with the joined dataframe all_dat.
+
+
+```{r}
+library(rjags)
+library(coda)
+library(choroplethr)
+library(modeest)
+load("election_2008_2016.RData")
+
+carolinas <- all_dat[all_dat$state_abbreviation == "NC" | all_dat$state_abbreviation =="SC", ]
+gop.percent.increase <- 100 * (carolinas$gop_2016 - carolinas$gop_2012)/carolinas$gop_2012
+gop.percent.increase.gt.5 <- gop.percent.increase > 5
+
+
+# Borrowed from instructor codebase to create our predictors
+# and reposenses for the carolinas data set.
+fips <- carolinas[, 1]
+Y <- round(100 * (carolinas$gop_2016 - carolinas$gop_2012)/carolinas$gop_2012,1)
+Z <- Y > 5
+
+these <- c(3, 7, 10, 15, 20, 21, 25, 27, 31, 32, 47, 51, 22,44:45)
+X <- as.matrix(carolinas[, these + 15])
+X <- scale(X)
+names <- dict[these, ]
+colnames(X) <- names[, 1]
+
+county_plot <- function(fips, Y, main = "", units = "") {
+temp <- as.data.frame(list(region = fips, value = Y))
+# county_choropleth(temp,title=main,legend=units)
+county_choropleth(temp, title = main, county_zoom = fips)
+}
+county_plot(fips, Y, "Percent change in GOP support from 2012 to 2016",
+unit = "Percent increase")
+```
+
+
+### Fit with $\tau = 1$
+```{r}
+n.chains <- 4
+DEBUG <- TRUE
+if(DEBUG)
+{
+nSamples <- 10000
+} else
+{
+nSamples <- 20000
+}
+n <- nrow(X)
+tau <- 1
+p <- ncol(X)
+logistic_model <- "model{
+# Likelihood
+for(i in 1:n){
+Z[i] ~ dbern(q[i])
+logit(q[i]) <- intercept +inprod(X[i,],beta[])
+}
+#Priors
+intercept ~ dnorm(0,tau^2)
+for(j in 1:p){
+beta[j] ~ dnorm(0,tau^2)
+}
+}"
+model.carolinas <- jags.model(textConnection(logistic_model), data = list(Z=Z,X=X,n=n,p=p,tau=tau),n.chains = n.chains)## Compiling model graph
+update(model.carolinas, nSamples, progress.bar="none"); # Burnin
+samp.coeff <- coda.samples(model.carolinas, variable.names=c("intercept","beta"),n.iter=2*nSamples) 
+```
+
+### Fit with $\tau = 100$
+
+```{r}
+tau <- 100
+model.carolinas.uninformative <- jags.model(textConnection(logistic_model), data = list(Z=Z,X=X,n=n,p=p,tau=tau),n.chains = n.chains)
+update(model.carolinas.uninformative, nSamples, progress.bar="none"); # Burnin
+samp.coeff.uninformative <- coda.samples(model.carolinas.uninformative, variable.names=c("intercept","beta"),n.iter=2*nSamples) 
+```
+
+## (2) Assess convergence of the sampler for both priors.
+
+In this section we sample from our model after burn in. Although all of the plots are not presented
+we assesed convergence by;
+- viewing the time sereies for the intercept and each of the predictors. For this we utilized the
+coda package.
+- ran multiple chains and viewed evaluated the autocorrelation plots.
+- calculated the posterior means for the intercept and the j
+- utilized the mlv funtions in the modeest to calculate the MAP estimated of the posterior
+modes
+- we fit a frequentist model an evaluated the estimated coefficients against the posterior means
+and modes
+- compared the 95% prediction intervals for the intercepts against the p-values from the logistic
+regression maximum likelihood model
+
+Code for this is below, we run some of it conditionlally though the DEBUG variable. 
+
+We did run the model without standardizing the feature data and noted evidence that the chain might be
+experienceing convergence issues. There was significant autocorrelation of the chains when the data was not standardized.
+
+
+### $\tau=1$ Posterior quantiles
+
+```{r}
+summary(samp.coeff)
+```
+
+### $\tau = 1$ Sample again and estimate the mean and MAP mode of the posterior dostributions.
+
+```{r}
+samp.coeff.jags <- jags.samples(model.carolinas, variable.names = c("intercept","beta"), n.iter = nSamples, progress.bar = "none")
+posterior_means <- lapply(samp.coeff.jags, apply, 1, "mean")
+pander(posterior_means, caption = "posterior means second sample")
+posterior_modes <- lapply(samp.coeff.jags, apply, 1, "mlv")
+posterior_modes
+```
+
+### $\tau = 1$ Plot the time series, empirical posterior distribution, and the autocoerrelation
+fucntion for the coefficients
+
+We only plot the intercept for the final report. Set the DEBUG flag to TRUE in order to include
+all of the coefficients.
+
+```{r}
+if (DEBUG) {
+for (i in 1:p) {
+samp.coeff <- coda.samples(model.carolinas, variable.names = c(paste("beta[",i, "]", sep = "")), n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+plot(samp.coeff)
+}
+samp.coeff <- coda.samples(model.carolinas, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+gelman.plot(samp.coeff)
+plot(samp.coeff)
+} else {
+samp.coeff <- coda.samples(model.carolinas, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+gelman.plot(samp.coeff)
+plot(samp.coeff)
+}
+```
+
+### $\tau= 100$ Posterior quantiles
+
+```{r}
+summary(samp.coeff.uninformative)
+```
+
+
+### $\tau = 100$ Sample again and estimate the mean and MAP mode of the posterior dostributions.
+
+```{r}
+samp.coeff.jags.uninformative <- jags.samples(model.carolinas.uninformative,variable.names = c("intercept", "beta"), n.iter = 2 * nSamples,progress.bar = "none")
+posterior_means.uninformative <- lapply(samp.coeff.jags.uninformative,apply, 1, "mean")
+pander(posterior_means.uninformative, caption = "posterior_means.uninformative")
+posterior_means.uninformative <- lapply(samp.coeff.jags.uninformative,apply, 1, "mlv")
+posterior_means.uninformative
+```
+
+ $\tau = 100$ Plot the time series, empirical posterior distribution, and the autocoerrelation
+fucntion for the coefficients
+
+We only plot the intercept for the final report. Set the DEBUG flag to TRUE in order to include
+all of the coefficients.
+
+```{r}
+if (DEBUG) {
+for (i in 1:p) {
+samp.coeff.uninformative <- coda.samples(model.carolinas.uninformative,
+variable.names = c(paste("beta[", i, "]", sep = "")),
+n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff.uninformative)
+gelman.plot(samp.coeff.uninformative)
+plot(samp.coeff.uninformative)
+}
+samp.coeff.uninformative <- coda.samples(model.carolinas.uninformative,
+variable.names = "intercept", n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff.uninformative)
+gelman.plot(samp.coeff.uninformative)
+plot(samp.coeff.uninformative)
+} else {
+samp.coeff.uninformative <- coda.samples(model.carolinas.uninformative,
+variable.names = "intercept", n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff.uninformative)
+gelman.plot(samp.coeff.uninformative)
+plot(samp.coeff.uninformative)
+}
+```
+
+### Fit frequentist logistic model for reference.
+
+```{r}
+df <- data.frame(cbind(Z, X))
+lm.logistic <- glm(Z ~ ., family = binomial, df)
+summary(lm.logistic)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
