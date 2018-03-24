@@ -1,0 +1,167 @@
+---
+title: "Applied Bayesian Analysis : NCSU ST 540"
+subtitle: "Homework 7"
+author: "Bruce Campbell"
+fontsize: 11pt
+output: pdf_document
+bibliography: BruceCampbell_ST540_HW_1.bib
+---
+
+---
+```{r setup, include=FALSE,echo=FALSE}
+rm(list = ls())
+setwd("C:/E/brucebcampbell-git/bayesian-learning-with-R")
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dev = 'pdf')
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(tidy=TRUE)
+knitr::opts_chunk$set(prompt=FALSE)
+knitr::opts_chunk$set(fig.height=5)
+knitr::opts_chunk$set(fig.width=7)
+knitr::opts_chunk$set(warning=FALSE)
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_knit$set(root.dir = ".")
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
+library(latex2exp)   
+library(pander)
+library(ggplot2)
+library(GGally)
+```
+
+In this assignment we perform Bayesian linear regression for the microbiome data on the
+course website
+```
+https://www4.stat.ncsu.edu/~reich/ABA/assignments/homes.RData
+```
+
+Let $Y_i$ be the precipitation for observation $i$ and $X_{ij}$ equal one if OTU $j$ is present in sample $i$.
+
+First, extract the 50 OTU with the largest absolute correlation between $X_{ij}$ and $Y_i$. Then fit a Bayesian linear regression model precipitation as the response and with these 50 covariates (and an intercept term) using two priors:
+
+(1) Uninformative normal priors: $\beta_j \sim Normal(0, 100^2)$
+
+(2) Hierarchical normal priors: $\beta_j | \tau \sim Normal(0, tau^2)$ where $\tau^2 \sim InvGamma(0:01 , 0:01)$
+
+(3) Bayesian LASSO: $\beta_j | \tau^2 \sim DE(0, \tau^2)$ where $ \tau^2 \sim InvGamma(0:01, 0:01)$
+
+Compare convergence and the posterior distribution of the regression coeffcients under these three priors. In particular, are the same OTU's significant in all three fits?
+
+
+###Load data and select 50 most ocrrelated OUT variables. 
+
+```{r}
+library(rjags)
+library(coda)
+library(choroplethr)
+library(modeest)
+load("homes.RData")
+
+X <- OTU!=0
+Y <- homes$MeanAnnualPrecipitation
+
+C_xy <- cor(X,Y)
+
+top <- function(x, n){
+    tail( order(x), n )
+}
+
+indices <- top(C_xy,50)
+
+X_50 <- X[, indices]
+
+```
+
+
+### 
+```{r}
+n.chains <- 4
+DEBUG <- TRUE
+if(DEBUG)
+{
+nSamples <- 2000
+} else
+{
+nSamples <- 2000
+}
+n <- nrow(X)
+tau <- 1
+p <- ncol(X)
+
+logistic_model <- "model{
+# Likelihood
+for(i in 1:n){
+Z[i] ~ dbern(q[i])
+logit(q[i]) <- intercept +inprod(X[i,],beta[])
+}
+#Priors
+intercept ~ dnorm(0,tau^2)
+for(j in 1:p){
+beta[j] ~ dnorm(0,tau^2)
+}
+}"
+model.carolinas <- jags.model(textConnection(logistic_model), data = list(Z=Z,X=X,n=n,p=p,tau=tau),n.chains = n.chains)## Compiling model graph
+update(model.carolinas, nSamples, progress.bar="none"); # Burnin
+samp.coeff <- coda.samples(model.carolinas, variable.names=c("intercept","beta"),n.iter=2*nSamples) 
+```
+
+## (2) Assess convergence of the sampler for both priors.
+
+In this section we sample from our model after burn in. Although all of the plots are not presented
+we assesed convergence by;
+- viewing the time sereies for the intercept and each of the predictors. For this we utilized the
+coda package.
+- ran multiple chains and viewed evaluated the autocorrelation plots.
+- calculated the posterior means for the intercept and the j
+- utilized the mlv funtions in the modeest to calculate the MAP estimated of the posterior
+modes
+- we fit a frequentist model an evaluated the estimated coefficients against the posterior means
+and modes
+- compared the 95% prediction intervals for the intercepts against the p-values from the logistic
+regression maximum likelihood model
+
+Code for this is below, we run some of it conditionlally though the DEBUG variable. 
+
+We did run the model without standardizing the feature data and noted evidence that the chain might be
+experienceing convergence issues. There was significant autocorrelation of the chains when the data was not standardized.
+
+
+###  Posterior quantiles
+
+```{r}
+summary(samp.coeff)
+```
+
+### Sample again and estimate the mean and MAP mode of the posterior dostributions.
+
+```{r}
+samp.coeff.jags <- jags.samples(model.carolinas, variable.names = c("intercept","beta"), n.iter = nSamples, progress.bar = "none")
+posterior_means <- lapply(samp.coeff.jags, apply, 1, "mean")
+pander(posterior_means, caption = "posterior means second sample")
+posterior_modes <- lapply(samp.coeff.jags, apply, 1, "mlv")
+posterior_modes
+```
+
+### Plot the time series, empirical posterior distribution, and the autocoerrelation
+fucntion for the coefficients
+
+We only plot the intercept for the final report. Set the DEBUG flag to TRUE in order to include
+all of the coefficients.
+
+```{r}
+if (DEBUG) {
+for (i in 1:p) {
+samp.coeff <- coda.samples(model.carolinas, variable.names = c(paste("beta[",i, "]", sep = "")), n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+plot(samp.coeff)
+}
+samp.coeff <- coda.samples(model.carolinas, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+gelman.plot(samp.coeff)
+plot(samp.coeff)
+} else {
+samp.coeff <- coda.samples(model.carolinas, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+gelman.plot(samp.coeff)
+plot(samp.coeff)
+}
+```
