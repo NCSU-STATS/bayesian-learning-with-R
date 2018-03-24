@@ -110,10 +110,10 @@ n.chains <- 4
 DEBUG <- TRUE
 if(DEBUG)
 {
-nSamples <- 10000
+nSamples <- 2000
 } else
 {
-nSamples <- 20000
+nSamples <- 2000
 }
 n <- nrow(X)
 tau <- 1
