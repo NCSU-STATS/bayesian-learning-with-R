@@ -40,9 +40,9 @@ First, extract the 50 OTU with the largest absolute correlation between $X_{ij}$
 
 (1) Uninformative normal priors: $\beta_j \sim Normal(0, 100^2)$
 
-(2) Hierarchical normal priors: $\beta_j | \tau \sim Normal(0, tau^2)$ where $\tau^2 \sim InvGamma(0:01 , 0:01)$
+(2) Hierarchical normal priors: $\beta_j | \tau \sim Normal(0, \tau^2)$ where $\tau^2 \sim InvGamma(0:01 , 0:01)$
 
-(3) Bayesian LASSO: $\beta_j | \tau^2 \sim DE(0, \tau^2)$ where $ \tau^2 \sim InvGamma(0:01, 0:01)$
+(3) Bayesian LASSO: $\beta_j | \tau^2 \sim DE(0, \tau^2)$ where $\tau^2 \sim InvGamma(0:01, 0:01)$
 
 Compare convergence and the posterior distribution of the regression coeffcients under these three priors. In particular, are the same OTU's significant in all three fits?
 
@@ -65,46 +65,59 @@ top <- function(x, n){
     tail( order(x), n )
 }
 
-indices <- top(C_xy,50)
+indices <- top(C_xy,10)
 
-X_50 <- X[, indices]
+X <- X[, indices]
 
+top.corr <- C_xy[indices]
+
+DEBUG <- TRUE
+if(DEBUG)
+{
+nSamples <- 5000
+n.chains <- 4
+} else
+{
+nSamples <- 5000
+n.chains <- 4
+}
 ```
 
 
 ### 
+It's not specified what the prior variance is for E[Y_j|X_j]. We wull assume $Y|\beta \sim N(y \large\cdot \beta, \sigma^2)$ where $\sigma^2 \sim InvGamma(0.1,0.1)$
 ```{r}
-n.chains <- 4
-DEBUG <- TRUE
-if(DEBUG)
-{
-nSamples <- 2000
-} else
-{
-nSamples <- 2000
-}
 n <- nrow(X)
-tau <- 1
+
+sigma.beta  <- 100
+inv.gamma.param  <- 0.1
 p <- ncol(X)
 
-logistic_model <- "model{
-# Likelihood
-for(i in 1:n){
-Z[i] ~ dbern(q[i])
-logit(q[i]) <- intercept +inprod(X[i,],beta[])
-}
-#Priors
-intercept ~ dnorm(0,tau^2)
-for(j in 1:p){
-beta[j] ~ dnorm(0,tau^2)
-}
+model_string.normal_uniformative <- "model{
+  # Likelihood
+  for(i in 1:n){
+    Y[i]   ~ dnorm(mu[i],1/sigma^2)
+    mu[i] <- intercept +inprod(X[i,],beta[])
+  }
+
+  # Prior for beta
+  for(j in 1:p){
+    beta[j] ~ dnorm(0,1/sigma.beta^2)
+  }
+  intercept ~ dnorm(0,1/sigma.beta^2)
+
+  # Prior for the inverse variance
+  inv.var   ~ dgamma(inv.gamma.param, inv.gamma.param)
+  sigma     <- 1/sqrt(inv.var)
 }"
-model.carolinas <- jags.model(textConnection(logistic_model), data = list(Z=Z,X=X,n=n,p=p,tau=tau),n.chains = n.chains)## Compiling model graph
-update(model.carolinas, nSamples, progress.bar="none"); # Burnin
-samp.coeff <- coda.samples(model.carolinas, variable.names=c("intercept","beta"),n.iter=2*nSamples) 
+
+model.normal_uniformative <- jags.model(textConnection(model_string.normal_uniformative), data = list(Y=Y,X=X,n=n,p=p,sigma.beta=sigma.beta, inv.gamma.param=inv.gamma.param),n.chains = n.chains)## Compiling model graph
+update(model.normal_uniformative, nSamples, progress.bar="none"); # Burnin
+samp.coeff.normal_uniformative <- coda.samples(model.normal_uniformative, variable.names=c("intercept","beta"),n.iter=2*nSamples) 
+
 ```
 
-## (2) Assess convergence of the sampler for both priors.
+## (2) Assess convergence of the samplers 
 
 In this section we sample from our model after burn in. Although all of the plots are not presented
 we assesed convergence by;
@@ -114,54 +127,172 @@ coda package.
 - calculated the posterior means for the intercept and the j
 - utilized the mlv funtions in the modeest to calculate the MAP estimated of the posterior
 modes
-- we fit a frequentist model an evaluated the estimated coefficients against the posterior means
-and modes
 - compared the 95% prediction intervals for the intercepts against the p-values from the logistic
 regression maximum likelihood model
+- Gelman plots are produced when not running in DEBUG mode.
 
 Code for this is below, we run some of it conditionlally though the DEBUG variable. 
 
 We did run the model without standardizing the feature data and noted evidence that the chain might be
 experienceing convergence issues. There was significant autocorrelation of the chains when the data was not standardized.
 
-
-###  Posterior quantiles
-
 ```{r}
-summary(samp.coeff)
-```
+summary(samp.coeff.normal_uniformative)
+#Sample again and estimate posterior means and MAP posterior modes.
+samp.coeff.normal_uniformative.jags <- jags.samples(model.normal_uniformative, variable.names = c("intercept","beta"), n.iter = nSamples, progress.bar = "none")
+posterior_means.normal_uniformative <- lapply(samp.coeff.normal_uniformative.jags, apply, 1, "mean")
+pander(posterior_means.normal_uniformative, caption = "posterior means second sample")
+posterior_modes.normal_uniformative <- lapply(samp.coeff.normal_uniformative.jags, apply, 1, "mlv")
+posterior_modes.normal_uniformative
 
-### Sample again and estimate the mean and MAP mode of the posterior dostributions.
-
-```{r}
-samp.coeff.jags <- jags.samples(model.carolinas, variable.names = c("intercept","beta"), n.iter = nSamples, progress.bar = "none")
-posterior_means <- lapply(samp.coeff.jags, apply, 1, "mean")
-pander(posterior_means, caption = "posterior means second sample")
-posterior_modes <- lapply(samp.coeff.jags, apply, 1, "mlv")
-posterior_modes
-```
-
-### Plot the time series, empirical posterior distribution, and the autocoerrelation
-fucntion for the coefficients
-
-We only plot the intercept for the final report. Set the DEBUG flag to TRUE in order to include
-all of the coefficients.
-
-```{r}
 if (DEBUG) {
 for (i in 1:p) {
-samp.coeff <- coda.samples(model.carolinas, variable.names = c(paste("beta[",i, "]", sep = "")), n.iter = nSamples, progress.bar = "none")
+samp.coeff <- coda.samples(model.normal_uniformative, variable.names = c(paste("beta[",i, "]", sep = "")), n.iter = nSamples, progress.bar = "none")
 autocorr.plot(samp.coeff)
 plot(samp.coeff)
 }
-samp.coeff <- coda.samples(model.carolinas, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
+samp.coeff <- coda.samples(model.normal_uniformative, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
 autocorr.plot(samp.coeff)
-gelman.plot(samp.coeff)
+if(n.chains>1)
+  {
+  gelman.plot(samp.coeff)
+  }
 plot(samp.coeff)
 } else {
-samp.coeff <- coda.samples(model.carolinas, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
+samp.coeff <- coda.samples(model.normal_uniformative, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
 autocorr.plot(samp.coeff)
-gelman.plot(samp.coeff)
+if(n.chains>1)
+  {
+  gelman.plot(samp.coeff)
+  }
+plot(samp.coeff)
+}
+```
+
+## Hierarchical Normal Priors 
+$\beta_j | \tau \sim Normal(0, \tau^2)$ where $\tau^2 \sim InvGamma(0:01 , 0:01)$
+
+```{r}
+beta.inv.gamma.param  <- 0.01
+variance.inv.gamma.param  <- 0.1
+p <- ncol(X)
+
+model_string.normal_hierarchical <- "model{
+  # Likelihood
+  for(i in 1:n){
+    Y[i]   ~ dnorm(mu[i],1/sigma^2)
+    mu[i] <- intercept +inprod(X[i,],beta[])
+  }
+
+  # Prior for beta
+  for(j in 1:p){
+    beta[j] ~ dnorm(0,beta.inv.gamma.param)
+  }
+  intercept ~ dnorm(0,beta.inv.gamma.param)
+
+  # Prior for the inverse variance
+  inv.var   ~ dgamma(variance.inv.gamma.param, variance.inv.gamma.param)
+  sigma     <- 1/sqrt(inv.var)
+
+  #Beta Prior for the inverse variance
+  inv.var.beta   ~ dgamma(beta.inv.gamma.param, beta.inv.gamma.param)
+}"
+
+model.normal_hierarchical <- jags.model(textConnection(model_string.normal_hierarchical), data = list(Y=Y,X=X,n=n,p=p,variance.inv.gamma.param=variance.inv.gamma.param,beta.inv.gamma.param=beta.inv.gamma.param),n.chains = n.chains)## Compiling model graph
+update(model.normal_hierarchical, nSamples, progress.bar="none"); # Burnin
+samp.coeff.normal_hierarchical <- coda.samples(model.normal_hierarchical, variable.names=c("intercept","beta"),n.iter=2*nSamples) 
+summary(samp.coeff.normal_hierarchical)
+#Sample again and estimate posterior means and MAP posterior modes.
+samp.coeff.normal_hierarchical.jags <- jags.samples(model.normal_hierarchical, variable.names = c("intercept","beta"), n.iter = nSamples, progress.bar = "none")
+posterior_means.normal_hierarchical <- lapply(samp.coeff.normal_hierarchical.jags, apply, 1, "mean")
+pander(posterior_means.normal_hierarchical, caption = "posterior means second sample")
+posterior_modes.normal_hierarchical <- lapply(samp.coeff.normal_hierarchical.jags, apply, 1, "mlv")
+posterior_modes.normal_hierarchical
+
+if (DEBUG) {
+for (i in 1:p) {
+samp.coeff <- coda.samples(model.normal_hierarchical, variable.names = c(paste("beta[",i, "]", sep = "")), n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+plot(samp.coeff)
+}
+samp.coeff <- coda.samples(model.normal_hierarchical, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+if(n.chains>1)
+  {
+  gelman.plot(samp.coeff)
+  }
+plot(samp.coeff)
+} else {
+samp.coeff <- coda.samples(model.normal_hierarchical, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+if(n.chains>1)
+  {
+  gelman.plot(samp.coeff)
+  }
+plot(samp.coeff)
+}
+
+```
+
+## BLASSO
+
+```{r}
+beta.inv.gamma.param  <- 0.01
+variance.inv.gamma.param  <- 0.1
+p <- ncol(X)
+
+model_string.normal_blasso <- "model{
+  # Likelihood
+  for(i in 1:n){
+    Y[i]   ~ dnorm(mu[i],1/sigma^2)
+    mu[i] <- intercept +inprod(X[i,],beta[])
+  }
+
+  # Prior for beta
+  for(j in 1:p){
+    beta[j] ~ ddexp(0,beta.inv.gamma.param)
+  }
+  intercept ~ ddexp(0,beta.inv.gamma.param)
+
+  # Prior for the inverse variance
+  inv.var   ~ dgamma(variance.inv.gamma.param, variance.inv.gamma.param)
+  sigma     <- 1/sqrt(inv.var)
+
+  #Beta Prior for the inverse variance
+  inv.var.beta   ~ dgamma(beta.inv.gamma.param, beta.inv.gamma.param)
+}"
+
+model.normal_blasso <- jags.model(textConnection(model_string.normal_blasso), data = list(Y=Y,X=X,n=n,p=p,variance.inv.gamma.param=variance.inv.gamma.param,beta.inv.gamma.param=beta.inv.gamma.param),n.chains = n.chains)## Compiling model graph
+update(model.normal_blasso, nSamples, progress.bar="none"); # Burnin
+samp.coeff.normal_blasso <- coda.samples(model.normal_blasso, variable.names=c("intercept","beta"),n.iter=2*nSamples) 
+summary(samp.coeff.normal_blasso)
+#Sample again and estimate posterior means and MAP posterior modes.
+samp.coeff.normal_blasso.jags <- jags.samples(model.normal_blasso, variable.names = c("intercept","beta"), n.iter = nSamples, progress.bar = "none")
+posterior_means.normal_blasso <- lapply(samp.coeff.normal_blasso.jags, apply, 1, "mean")
+pander(posterior_means.normal_blasso, caption = "posterior means second sample")
+posterior_modes.normal_blasso <- lapply(samp.coeff.normal_blasso.jags, apply, 1, "mlv")
+posterior_modes.normal_blasso
+
+if (DEBUG) {
+for (i in 1:p) {
+samp.coeff <- coda.samples(model.normal_blasso, variable.names = c(paste("beta[",i, "]", sep = "")), n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+plot(samp.coeff)
+}
+samp.coeff <- coda.samples(model.normal_blasso, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+if(n.chains>1)
+  {
+  gelman.plot(samp.coeff)
+  }
+plot(samp.coeff)
+} else {
+samp.coeff <- coda.samples(model.normal_blasso, variable.names = "intercept",n.iter = nSamples, progress.bar = "none")
+autocorr.plot(samp.coeff)
+if(n.chains>1)
+  {
+  gelman.plot(samp.coeff)
+  }
 plot(samp.coeff)
 }
 ```
