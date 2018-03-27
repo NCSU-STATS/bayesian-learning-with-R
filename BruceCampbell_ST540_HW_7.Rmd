@@ -21,7 +21,7 @@ knitr::opts_chunk$set(fig.width=8)
 knitr::opts_chunk$set(warning=FALSE)
 knitr::opts_chunk$set(message=FALSE)
 knitr::opts_knit$set(root.dir = ".")
-knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=34),tidy=TRUE)
 library(latex2exp)   
 library(pander)
 library(ggplot2)
@@ -61,10 +61,15 @@ C_xy <- cor(X,Y)
 top <- function(x, n){
     tail( order(x), n )
 }
-
-indices <- top(C_xy,50)
+#One of the X is all 1's - resulting in an NA for the correlation.
+indices <- top(C_xy,51)
+#Remove the NA - I'm sure there's a more elegant way...
+indices <- indices[1:50] 
 
 X <- X[, indices]
+
+predictor.names <- names(OTU)[indices]
+predictor.names[51] <- "intercept"
 
 top.corr <- C_xy[indices]
 
@@ -74,23 +79,41 @@ top.corr <- C_xy[indices]
 DEBUG <- FALSE
 if(DEBUG)
 {
-nSamples <- 10000
+nSamples <- 20000
 n.chains <- 1
 } else
 {
-nSamples <- 10000
+nSamples <- 20000
 n.chains <- 1
 }
 ```
 
-### 
-It's not specified what the prior variance is for E[Y_j|X_j]. We wull assume $Y|\beta \sim N(y \large\cdot \beta, \sigma^2)$ where $\sigma^2 \sim InvGamma(0.1,0.1)$
+We sample from our model after burn in. Not all of the diagnostic plots are not presented. 
+See the diagnostic plots in 
+```https://github.com/brucebcampbell/bayesian-learning-with-R.git```
+we assesed convergence by;
+- viewing the time sereies for the intercept and each of the predictors. For this we utilized the
+coda package.
+- ran multiple chains and viewed evaluated the autocorrelation plots.
+- calculated the posterior means for the intercept and the $beta_j$
+- utilized the mlv funtions in the modeest to calculate the MAP estimated of the posterior
+modes
+- compared the 95% prediction intervals for the intercepts against the p-values from the logistic
+regression maximum likelihood model
+- Gelman plots are optionally produced whem the nuymber of MCMC chains is greater than one.  
+
+Some of the code is run conditionally through the DEBUG flag. We ran under debug mode and noted that all models convereged.  All but one of the predictors were the same for all the modesl.  Depending on the run OTU_624 was swapped with another pridictor in the uninformative model.
+
+This was an interesting project. I iterated several versions and had to debug working jags models to get things running well.  Also we encountrered a NaN in the correlation due to one of the predictors being all 1's.  If this was not accounted for the run times went up and convergence was bad.  The width of the credible intervals could be investigated. We'll be running a longer simulation as a follow on task for fun.  We set the precision of the model error to be 0.01 and 0.1 and got similar results.
+
+###  Normal Uniformative  
+It's not specified what the prior variance is for $E[Y_j|X_j]$. We wull assume $Y|\beta \sim N(y \large\cdot \beta, \sigma^2)$ where $\sigma^2 \sim InvGamma(0.1,0.1)$
 
 ```{r}
 n <- nrow(X)
 
 sigma.beta  <- 100
-inv.gamma.param  <- 0.01
+inv.gamma.param  <- 0.1
 p <- ncol(X)
 
 model_string.normal_uniformative <- "model{
@@ -115,33 +138,29 @@ model.normal_uniformative <- jags.model(textConnection(model_string.normal_unifo
 update(model.normal_uniformative, nSamples, progress.bar="none"); # Burnin
 samp.coeff.normal_uniformative <- coda.samples(model.normal_uniformative, variable.names=c("intercept","beta"),n.iter=2*nSamples) 
 
-```
+sum.normal_uniformative <-  summary(samp.coeff.normal_uniformative)
+quantiles<-sum.normal_uniformative$quantiles
+left.05.quantile.sign  <- sign(quantiles[,1])==-1
+right.95.quantile.sign <- sign(quantiles[,5])==1
+significant <- xor(left.05.quantile.sign ,right.95.quantile.sign)
+beta.significant <- quantiles[significant,]
 
-## (2) Assess convergence of the samplers 
 
-We sample from our model after burn in. Not all of the plots are not presented
-we assesed convergence by;
-- viewing the time sereies for the intercept and each of the predictors. For this we utilized the
-coda package.
-- ran multiple chains and viewed evaluated the autocorrelation plots.
-- calculated the posterior means for the intercept and the $beta_j$
-- utilized the mlv funtions in the modeest to calculate the MAP estimated of the posterior
-modes
-- compared the 95% prediction intervals for the intercepts against the p-values from the logistic
-regression maximum likelihood model
-- Gelman plots are optionally produced whem the nuymber of MCMC chains is greater than one.  
+pander(data.frame(beta.significant), caption = "significant normal uninformative ")
 
-Some of the code is run conditionally through the DEBUG flag.
+credible.widths <- beta.significant[,5]-beta.significant[,1]
 
-```{r}
-summary(samp.coeff.normal_uniformative)
+predictor.names.significant <- predictor.names[significant]
 
-autocorr.plot(samp.coeff.normal_uniformative)
+pander(data.frame(predictor.names.significant,credible.widths), caption = "credible widths normal uninformative ")
 
-plot(samp.coeff.normal_uniformative)
 
 if (DEBUG) 
   {
+  autocorr.plot(samp.coeff.normal_uniformative)
+
+  plot(samp.coeff.normal_uniformative)
+
   #Sample again and estimate posterior means and MAP posterior modes.
   samp.coeff.normal_uniformative.jags <- jags.samples(model.normal_uniformative, variable.names = c("intercept","beta"), n.iter = nSamples, progress.bar = "none")
   posterior_means.normal_uniformative <- lapply(samp.coeff.normal_uniformative.jags, apply, 1, "mean")
@@ -162,7 +181,7 @@ $\beta_j | \tau \sim Normal(0, \tau^2)$ where $\tau^2 \sim InvGamma(0:01 , 0:01)
 
 ```{r}
 beta.inv.gamma.param  <- 0.01
-variance.inv.gamma.param  <- 0.01
+variance.inv.gamma.param  <- 0.1
 p <- ncol(X)
 
 model_string.normal_hierarchical <- "model{
@@ -192,14 +211,28 @@ update(model.normal_hierarchical, nSamples, progress.bar="none"); # Burnin
 
 samp.coeff.normal_hierarchical <-coda.samples(model.normal_hierarchical,variable.names=c("intercept","beta"),n.iter=2*nSamples)
 
-summary(samp.coeff.normal_hierarchical)
+sum.normal_hierarchical <-  summary(samp.coeff.normal_hierarchical)
+quantiles<-sum.normal_hierarchical$quantiles
+left.05.quantile.sign  <- sign(quantiles[,1])==-1
+right.95.quantile.sign <- sign(quantiles[,5])==1
+significant <- xor(left.05.quantile.sign ,right.95.quantile.sign)
+beta.significant <- quantiles[significant,]
 
-autocorr.plot(samp.coeff.normal_hierarchical)
+pander(data.frame(beta.significant), caption = "significant normal hierarchical ")
 
-plot(samp.coeff.normal_hierarchical)
+credible.widths <- beta.significant[,5]-beta.significant[,1]
+
+predictor.names.significant <- predictor.names[significant]
+
+pander(data.frame(predictor.names.significant,credible.widths), caption = "credible widths normal hierarchical ")
+
 
 if (DEBUG) 
 {
+  autocorr.plot(samp.coeff.normal_hierarchical)
+
+  plot(samp.coeff.normal_hierarchical)
+  
   #Sample again and estimate posterior means and MAP posterior modes.
   samp.coeff.normal_hierarchical.jags <- jags.samples(model.normal_hierarchical, variable.names = c("intercept","beta"), n.iter = nSamples, progress.bar = "none")
   posterior_means.normal_hierarchical <- lapply(samp.coeff.normal_hierarchical.jags, apply, 1, "mean")
@@ -217,7 +250,7 @@ if (DEBUG)
 
 ```{r}
 beta.inv.gamma.param  <- 0.01
-variance.inv.gamma.param  <- 0.01
+variance.inv.gamma.param  <- 0.1
 p <- ncol(X)
 
 model_string.normal_blasso <- "model{
@@ -247,14 +280,27 @@ update(model.normal_blasso, nSamples, progress.bar="none"); # Burnin
 
 samp.coeff.normal_blasso <- coda.samples(model.normal_blasso,variable.names=c("intercept","beta"),n.iter=2*nSamples) 
 
-summary(samp.coeff.normal_blasso)
+sum.normal_blasso <-  summary(samp.coeff.normal_blasso)
+quantiles<-sum.normal_blasso$quantiles
+left.05.quantile.sign  <- sign(quantiles[,1])==-1
+right.95.quantile.sign <- sign(quantiles[,5])==1
+significant <- xor(left.05.quantile.sign ,right.95.quantile.sign)
+beta.significant <- quantiles[significant,]
 
-autocorr.plot(samp.coeff.normal_blasso)
+pander(data.frame(beta.significant), caption = "significant normal BLASSO ")
 
-plot(samp.coeff.normal_blasso)
+credible.widths <- beta.significant[,5]-beta.significant[,1]
+
+predictor.names.significant <- predictor.names[significant]
+
+pander(data.frame(predictor.names.significant,credible.widths), caption = "credible widths normal BLASSO ")
 
 if (DEBUG) 
 {
+  autocorr.plot(samp.coeff.normal_blasso)
+
+  plot(samp.coeff.normal_blasso)
+
   #Sample again and estimate posterior means and MAP posterior modes.
   samp.coeff.normal_blasso.jags <- jags.samples(model.normal_blasso, variable.names = c("intercept","beta"), n.iter = nSamples, progress.bar = "none")
   posterior_means.normal_blasso <- lapply(samp.coeff.normal_blasso.jags, apply, 1, "mean")
