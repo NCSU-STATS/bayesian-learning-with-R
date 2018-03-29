@@ -1,0 +1,191 @@
+---
+title: "Applied Bayesian Analysis : NCSU ST 540"
+subtitle: "Homework 7"
+author: "Bruce Campbell"
+fontsize: 11pt
+output: pdf_document
+bibliography: BruceCampbell_ST540_HW_1.bib
+---
+
+---
+```{r setup, include=FALSE,echo=FALSE}
+rm(list = ls())
+setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R")
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dev = 'pdf')
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(tidy=TRUE)
+knitr::opts_chunk$set(prompt=FALSE)
+knitr::opts_chunk$set(fig.height=10)
+knitr::opts_chunk$set(fig.width=8)
+knitr::opts_chunk$set(warning=FALSE)
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_knit$set(root.dir = ".")
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
+library(latex2exp)   
+library(pander)
+library(ggplot2)
+library(GGally)
+```
+
+In this assignment we will performing random slopes logistic regression in JAGS using the Gambia
+data described in ```http://www4.stat.ncsu.edu/~reich/ABA/code/GLM```
+Let $Y_i$ be the binary response for individual $i$ , and let $\nu_i \in {1 \cdots 65}$ denote the village of individual $i$ Let $X_i = 1$ if individual $i$ regularly sleeps under a bed-net and $X_i = 0$ otherwise. Fit the model
+
+$$logit(P(Y_i=1)) = \alpha_{\nu_i} + X_i \beta_{\nu_i}$$
+where $\alpha_{\nu_i}$ and $\beta_{\nu_i}$ are the intercept and slope for village $j$
+The priors (independent over village and with each other) are 
+$$\alpha_{\nu_i} \sim Normal(\mu_a,\sigma_a^2)$$
+and
+$$\beta_{\nu_i}  \sim Normal(\mu_b,\sigma_b^2)$$
+
+Choose uninformative priors for $\mu_a,\sigma_a^2,\mu_b,\sigma_b^2$
+
+In your report address the follow questions:
+(1) Scientifically, why might the effect of bed-net vary by village?
+(2) Did the MCMC algorithm converge?
+(3) Do you see evidence that the slopes and/or intercepts vary by village?
+(4) Which village has the largest intercept? Slope? Does this agree with the data in these
+villages?
+
+
+```{r}
+library(rjags)
+library(coda)
+library(modeest)
+
+DEBUG <- FALSE
+if(DEBUG)
+{
+nSamples <- 10000
+n.chains <- 1
+} else
+{
+nSamples <- 10000
+n.chains <- 1
+}
+
+load("gambia.RData")
+
+X <- data.frame(as.numeric((X$netuse==1) | (X$treated==1)))
+Y <- pos
+n <- length(X)
+
+df <- cbind(X,village,pos)
+names(df) <- c("net","village","pos")
+
+boxplot(pos ~ village, data = df)
+
+plot(df$village,df$pos)
+ggplot(df, aes(x=village, y=net, color=pos))
+
+# model_string.logistic <-"model{
+#   # Likelihood
+#   for(i in 1:n){
+#     Y[i] ~ dbern(q[i])
+#     logit(q[i]) <- beta[1] + beta[2]*X[i,1]
+#   }
+#   
+#   #Priors
+#   beta[1] ~ dnorm(0,0.1)  
+#   beta[2] ~ dnorm(0,0.1)
+# 
+#   }"
+# model.logistic<- jags.model(textConnection(model_string.logistic), data = list(Y=Y,X=X,n=n),n.chains = n.chains)## Compiling model graph
+
+plot(df$village)
+
+village.counts <- unlist(table(df$village))
+
+numVillages <- length(unique(df$village))
+
+model_string.logistic_random_slopes <- "model{
+   # Likelihood
+   for(i in 1:numVillages){for(j in 1:village.counts[i]){
+      
+      Y[index]    ~ bern(q[index])
+      logit(q[index]) <- beta[i,1] + beta[i,2]*X[index]
+      index = index+1
+   }}
+
+   # Random effects
+   for(i in 1:numVillages){
+    beta[i,1] ~dnorm(0,0.1)  
+    beta[i,2] ~dnorm(0,0.1)
+   }
+
+   # Priors
+    for(i in 1:numVillages){
+      pred[i] <- beta[i,1] + beta[i,2]
+    }
+  }"
+
+villages <- df$village
+model_string.logistic_random_slopes <- "model{
+   # Likelihood
+   for(i in 1:n){
+
+    for(j in 1:village.counts[i]){
+    if(village[i])  
+
+
+      Y[index]    ~ bern(q[index])
+      logit(q[index]) <- beta[i,1] + beta[i,2]*X[index]
+      index = index+1
+   }}
+
+   # Random effects
+   for(i in 1:numVillages){
+    beta[i,1] ~dnorm(0,0.1)  
+    beta[i,2] ~dnorm(0,0.1)
+   }
+
+   # Priors
+    for(i in 1:numVillages){
+      pred[i] <- beta[i,1] + beta[i,2]
+    }
+  }"
+
+model.logistic_random_slopes <- jags.model(textConnection(model_string.logistic_random_slopes), data = list(Y=Y,X=X,n=n,numVillages=numVillages,village.counts=village.counts,villages=villages),n.chains = n.chains)## Compiling model graph
+
+
+update(model.logistic_random_slopes, nSamples, progress.bar="none"); # Burnin
+samp.coeff.logistic_random_slopes <- coda.samples(model.logistic_random_slopes, variable.names=c("beta"),n.iter=2*nSamples) 
+
+
+sum.logistic_random_slopes <-  summary(samp.coeff.logistic_random_slopes)
+quantiles<-sum.logistic_random_slopes$quantiles
+left.05.quantile.sign  <- sign(quantiles[,1])==-1
+right.95.quantile.sign <- sign(quantiles[,5])==1
+significant <- xor(left.05.quantile.sign ,right.95.quantile.sign)
+beta.significant <- quantiles[significant,]
+
+
+pander(data.frame(beta.significant), caption = "significant ")
+
+credible.widths <- beta.significant[,5]-beta.significant[,1]
+
+pander(data.frame(credible.widths), caption = "credible widths  ")
+
+
+if (DEBUG) 
+  {
+  autocorr.plot(samp.coeff.logistic_random_slopes)
+
+  plot(samp.coeff.logistic_random_slopes)
+
+  #Sample again and estimate posterior means and MAP posterior modes.
+  samp.coeff.logistic_random_slopes.jags <- jags.samples(model.logistic_random_slopes, variable.names = c("intercept","beta"), n.iter = nSamples, progress.bar = "none")
+  posterior_means.logistic_random_slopes <- lapply(samp.coeff.logistic_random_slopes.jags, apply, 1, "mean")
+  pander(posterior_means.logistic_random_slopes, caption = "posterior means second sample")
+  
+  posterior_modes.logistic_random_slopes <- lapply(samp.coeff.logistic_random_slopes.jags, apply, 1, "mlv")
+  posterior_modes.logistic_random_slopes
+  
+  if(n.chains>1)
+  {
+  gelman.plot(samp.coeff)
+  }
+}
+
+```
