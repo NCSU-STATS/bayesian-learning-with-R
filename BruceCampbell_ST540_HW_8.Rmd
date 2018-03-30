@@ -54,11 +54,11 @@ library(rjags)
 library(coda)
 library(modeest)
 
-DEBUG <- FALSE
+DEBUG <- TRUE
 if(DEBUG)
 {
-nSamples <- 10000
-n.chains <- 1
+nSamples <- 2000
+n.chains <- 4
 } else
 {
 nSamples <- 10000
@@ -67,106 +67,57 @@ n.chains <- 1
 
 load("gambia.RData")
 
-X <- data.frame(as.numeric((X$netuse==1) | (X$treated==1)))
+X.net <- as.numeric((X$netuse==1) | (X$treated==1))
 Y <- pos
-n <- length(X)
+n <- length(X.net)
 
-df <- cbind(X,village,pos)
+df <- data.frame(cbind(X.net,village,pos))
 names(df) <- c("net","village","pos")
-
-boxplot(pos ~ village, data = df)
-
-plot(df$village,df$pos)
-ggplot(df, aes(x=village, y=net, color=pos))
-
-# model_string.logistic <-"model{
-#   # Likelihood
-#   for(i in 1:n){
-#     Y[i] ~ dbern(q[i])
-#     logit(q[i]) <- beta[1] + beta[2]*X[i,1]
-#   }
-#   
-#   #Priors
-#   beta[1] ~ dnorm(0,0.1)  
-#   beta[2] ~ dnorm(0,0.1)
-# 
-#   }"
-# model.logistic<- jags.model(textConnection(model_string.logistic), data = list(Y=Y,X=X,n=n),n.chains = n.chains)## Compiling model graph
-
-plot(df$village)
-
-village.counts <- unlist(table(df$village))
-
 numVillages <- length(unique(df$village))
-
-model_string.logistic_random_slopes <- "model{
-   # Likelihood
-   for(i in 1:numVillages){for(j in 1:village.counts[i]){
-      
-      Y[index]    ~ bern(q[index])
-      logit(q[index]) <- beta[i,1] + beta[i,2]*X[index]
-      index = index+1
-   }}
-
-   # Random effects
-   for(i in 1:numVillages){
-    beta[i,1] ~dnorm(0,0.1)  
-    beta[i,2] ~dnorm(0,0.1)
-   }
-
-   # Priors
-    for(i in 1:numVillages){
-      pred[i] <- beta[i,1] + beta[i,2]
-    }
-  }"
-
 villages <- df$village
+
+#boxplot(pos ~ village, data = df)
+#plot(df$village,df$pos)
+#ggplot(df, aes(x=village, y=net, color=pos))
+#plot(df$village)
+#village.counts <- unlist(table(df$village))
+
 model_string.logistic_random_slopes <- "model{
    # Likelihood
    for(i in 1:n){
-
-    for(j in 1:village.counts[i]){
-    if(village[i])  
-
-
-      Y[index]    ~ bern(q[index])
-      logit(q[index]) <- beta[i,1] + beta[i,2]*X[index]
-      index = index+1
-   }}
-
-   # Random effects
-   for(i in 1:numVillages){
-    beta[i,1] ~dnorm(0,0.1)  
-    beta[i,2] ~dnorm(0,0.1)
+      Y[i]    ~ dbern(q[i])
+      logit(q[i]) <- beta[villages[i],1] + beta[villages[i],2]*X.net[i]
    }
 
-   # Priors
-    for(i in 1:numVillages){
-      pred[i] <- beta[i,1] + beta[i,2]
+   # Random effects
+   for(j in 1:numVillages){
+    beta[j,1] ~dnorm(0,0.1)  
+    beta[j,2] ~dnorm(0,0.1)
+   }
+
+    for(j in 1:numVillages){
+      pred[j] <- beta[j,1] + beta[j,2]
     }
   }"
 
-model.logistic_random_slopes <- jags.model(textConnection(model_string.logistic_random_slopes), data = list(Y=Y,X=X,n=n,numVillages=numVillages,village.counts=village.counts,villages=villages),n.chains = n.chains)## Compiling model graph
 
+model.logistic_random_slopes <- jags.model(textConnection(model_string.logistic_random_slopes), data = list(Y=Y,X.net=X.net,n=n,numVillages=numVillages,villages=villages),n.chains = n.chains)## Compiling model graph
 
 update(model.logistic_random_slopes, nSamples, progress.bar="none"); # Burnin
 samp.coeff.logistic_random_slopes <- coda.samples(model.logistic_random_slopes, variable.names=c("beta"),n.iter=2*nSamples) 
 
-
 sum.logistic_random_slopes <-  summary(samp.coeff.logistic_random_slopes)
-quantiles<-sum.logistic_random_slopes$quantiles
-left.05.quantile.sign  <- sign(quantiles[,1])==-1
-right.95.quantile.sign <- sign(quantiles[,5])==1
-significant <- xor(left.05.quantile.sign ,right.95.quantile.sign)
-beta.significant <- quantiles[significant,]
 
 
-pander(data.frame(beta.significant), caption = "significant ")
-
-credible.widths <- beta.significant[,5]-beta.significant[,1]
-
-pander(data.frame(credible.widths), caption = "credible widths  ")
-
+# quantiles<-sum.logistic_random_slopes$quantiles
+# left.05.quantile.sign  <- sign(quantiles[,1])==-1
+# right.95.quantile.sign <- sign(quantiles[,5])==1
+# significant <- xor(left.05.quantile.sign ,right.95.quantile.sign)
+# beta.significant <- quantiles[significant,]
+# pander(data.frame(beta.significant), caption = "significant ")
+# credible.widths <- beta.significant[,5]-beta.significant[,1]
+# pander(data.frame(credible.widths), caption = "credible widths  ")
+# 
 
 if (DEBUG) 
   {

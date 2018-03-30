@@ -10,7 +10,7 @@ bibliography: BruceCampbell_ST540_HW_1.bib
 ---
 ```{r setup, include=FALSE,echo=FALSE}
 rm(list = ls())
-setwd("d:/brucebcampbell-git/bayesian-learning-with-R")
+setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R")
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(dev = 'pdf')
 knitr::opts_chunk$set(cache=TRUE)
@@ -79,11 +79,11 @@ top.corr <- C_xy[indices]
 DEBUG <- FALSE
 if(DEBUG)
 {
-nSamples <- 20000
+nSamples <- 100
 n.chains <- 1
 } else
 {
-nSamples <- 20000
+nSamples <- 100
 n.chains <- 1
 }
 ```
