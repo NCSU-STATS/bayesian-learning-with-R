@@ -135,7 +135,7 @@ if (DEBUG)
   
   if(n.chains>1)
   {
-  gelman.plot(samp.coeff)
+  gelman.plot(samp.coeff.logistic_random_slopes)
   }
 }
 
