@@ -10,7 +10,7 @@ bibliography: BruceCampbell_ST540_HW_1.bib
 ---
 ```{r setup, include=FALSE,echo=FALSE}
 rm(list = ls())
-setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R")
+setwd("d:/brucebcampbell-git/bayesian-learning-with-R")
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(dev = 'pdf')
 knitr::opts_chunk$set(cache=TRUE)
@@ -58,10 +58,10 @@ DEBUG <- FALSE
 if(DEBUG)
 {
 nSamples <- 5000
-n.chains <- 8
+n.chains <- 1
 } else
 {
-nSamples <- 10000
+nSamples <- 40000
 n.chains <- 8
 }
 
@@ -173,9 +173,9 @@ for( i in 1:65)
 }
 
 intercept.max.mean <- which.max(intercepts.means.modes$mean)
-interncept.max.mode <- which.max(intercepts.means.modes$mode)
+intercept.max.mode <- which.max(intercepts.means.modes$mode)
 
-pander(data.frame(intercept.max.mean.index=villages[intercept.max.mean], interncept.max.mode.index=villages[interncept.max.mode]), caption="Village index of max mean and mode for intercept posteriors")
+pander(data.frame(intercept.max.mean.index=villages[intercept.max.mean], intercept.max.mode.index=villages[intercept.max.mode]), caption="Village index of max mean and mode for intercept posteriors")
 
 #Allocate matrix for means and modes of the slopes
 slopes.means.modes <- data.frame(mean = rep(NaN,65),mode=rep(NaN,65))
@@ -203,7 +203,7 @@ rownames(slopes.means.modes) <- c()
 slope.max.mean <- which.max(slopes.means.modes$mean)
 slope.max.mode <- which.max(slopes.means.modes$mode)
 
-pander(data.frame(slope.max.mean.index=villages[slope.max.mean], interncept.max.mode.index=villages[slope.max.mode]), caption="Village index of max mean and mode for slope posteriors")
+pander(data.frame(slope.max.mean.index=villages[slope.max.mean], intercept.max.mode.index=villages[slope.max.mode]), caption="Village index of max mean and mode for slope posteriors")
 ```
 
 
@@ -229,48 +229,39 @@ pander(data.frame(credible.widths), caption = "credible widths  ")
 
 ### Conclusions
 
-
 (2)MCMC algorithm converge?
 (3) Do you see evidence that the slopes and/or intercepts vary by village?
 (4) Which village has the largest intercept? Slope? Does this agree with the data in these
 villages?
 
-
-The MCMC algorithm converged for all the parameters. We saw evidence that the slopes and intercepts vary by village. We plot the proportions of net use and positive malaria status below and compare that to the results above. 
-
+The MCMC algorithm converged for all the parameters. We saw evidence that the slopes and intercepts vary by village. Below we plot the table for the villages max intercept and slope. We see large values for $(net,pos)=(0,0)$ and $(net,pos)=(1,1)$ for these villages. 
 
 
 ```{r}
-#There's a bug in sql df 
-# library(sqldf)
-# 
-# counts.pos <- data.frame(sqldf("select village, count(*) as pos from df where pos ==0 group by village"))
-# 
-# counts.net <- data.frame(sqldf("select village, count(*) as net from df where net ==1 group by village"))
-# 
-# counts.village <- data.frame(sqldf("select village, count(*) as count from df group by village"))
-# 
-# proportions <- cbind(counts.pos,counts.net$net,counts.village$count)
-
 tables <- table(df$net,df$pos,df$village)
 
 pander(tables[,,slope.max.mean], caption = "freq for max posterior mean for slope coefficient")
 
 pander(tables[,,intercept.max.mean], caption = "freq for max posterior mean for intercept coefficient")
 
-acc<- data.frame(accuracy =rep(NaN,65))
-for(i in 1:65)
-{
-  t <- tables[,,i]
-  total <- t[1,1]+t[1,2]+t[2,1]+t[2,2]
-  tp <- t[2,2]
-  tn <- t[1,1]
-  accuracy <- (tp+tn)/total
-  acc[i,]<- accuracy
-}
-
-plot(acc$accuracy, main="accuracy by village")
-
-villages[which.max(acc$accuracy)]
+#Some exploratory code 
+# acc<- data.frame(accuracy =rep(NaN,65))
+# 
+# for(i in 1:65)
+# {
+#   t <- tables[,,i]
+#   total <- t[1,1]+t[1,2]+t[2,1]+t[2,2]
+#   tp <- t[2,2]
+#   tn <- t[1,1]
+#   accuracy <- (tp+tn)/total
+#   acc[i,]<- accuracy
+# }
+# 
+# plot(acc$accuracy, main="accuracy by village")
+# 
+# villages[which.max(acc$accuracy)]
+# 
+# lm.logistic <- glm(pos ~ net, family = binomial, data = df)
+# summary(lm.logistic)
 ```
 
