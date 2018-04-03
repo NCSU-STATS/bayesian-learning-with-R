@@ -1,0 +1,61 @@
+
+load("E2.RData")
+
+dim(Y1)
+
+cor(Y1, use = "pairwise.complete.obs")
+N <- nrow(Y1)
+p = 6
+x <- scale(Y1)
+Y <-rowSums(x,na.rm=TRUE)
+stacks_dat <- list(Y=Y,x=x,p = 6,   N = 365)
+
+all_data           <- cbind(Y,x)
+colnames(all_data) <- c("Y","X1","X2","X3","X4","X5","X6")
+pairs(all_data)
+
+mlr_model <- function(){
+  
+  # Likelihood:
+  for(i in 1:N){
+    Y[i]   ~ dnorm(mu[i],tau)
+    mu[i] <- intercept + inprod(x[i,],beta[])
+  }
+  
+  # Prior for likelihood parameters:
+  tau~dgamma(0.1,0.1)
+  intercept~dnorm(0,0.01)
+  for(j in 1:p){
+    beta[j]~dnorm(0,0.01)
+  }
+  
+  # Missing data model for x
+  for(i in 1:N){
+    x[i,1:p]~dmnorm(x_mn[],x_prec[,])
+  }
+  
+  # Priors for missing-data model parameters
+  for(j in 1:p){
+    x_mn[j]~dnorm(0,0.01)
+  }
+  x_prec[1:p,1:p]~dwish(R[,],k)
+  x_cov[1:p,1:p]<-inverse(x_prec[,])
+  
+  k<-p+0.1
+  for(j1 in 1:p){for(j2 in 1:p){R[j1,j2]<-0.1*equals(j1,j2)}} #R is diagonal
+}
+
+
+library(R2OpenBUGS)
+
+mlr_inits <- function() {
+  list(intercept = mean(stacks_dat$Y,na.rm=T), beta = rnorm(stacks_dat$p), tau = 0.01)
+}
+
+samps <- bugs(data = stacks_dat, 
+              inits = mlr_inits, 
+              parameters.to.save = c("intercept", "beta", "x_mn","x_cov"), 
+              model.file = mlr_model, 
+              n.chains = 1, n.burnin=100, n.iter = 200, n.thin=10, DIC=F)
+
+plot(samps)

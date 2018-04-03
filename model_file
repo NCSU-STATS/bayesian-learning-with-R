@@ -1,0 +1,48 @@
+model{
+
+  # Likelihood for theta[1,1:p]:
+  #theta[1,1:p] ~ dmnorm(mu[1,1:p],precision1)
+  
+  #Prior for theta[1,1:p]
+  #mu[1:1,p] ~ ?
+  
+  #for(i in 2:N)
+  for(i in 2:N)
+  {
+    theta[i,1:p]   ~ dnorm(mu[i,1:p] ,precision2)
+    mu[i,1:p] <- mu2[1:p] + rho * Y1[i-1,1:p]
+  }
+  
+  # Prior for likelihood parameters: mu2, precision2, rho
+  rho ~ dunif(-1,1)
+  for(j in 1:p)
+  {
+    mu2[j] ~ dnorm(0,0.01)
+  }
+  
+  precision2[1:p,1:p]~dwish(R[,],k)
+
+  # Missing data model for Y1
+  for(i in 1:N)
+  {
+    Y1[i,1:p]~dmnorm(x_mn[],x_prec[,])
+  }
+
+  # Priors for missing-data model parameters
+  for(j in 1:p)
+  {
+    x_mn[j]~dnorm(0,0.01)
+  }
+  x_prec[1:p,1:p]~dwish(R[,],k)
+  x_cov[1:p,1:p]<-inverse(x_prec[,])
+
+  k<-p+0.1
+  for(j1 in 1:p)
+  {
+    for(j2 in 1:p)
+    {
+      R[j1,j2]<-0.1*equals(j1,j2)
+    }
+  }
+  
+}
