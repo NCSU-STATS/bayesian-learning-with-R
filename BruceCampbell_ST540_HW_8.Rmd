@@ -57,11 +57,11 @@ library(modeest)
 DEBUG <- FALSE
 if(DEBUG)
 {
-nSamples <- 5000
+nSamples <- 10000
 n.chains <- 1
 } else
 {
-nSamples <- 40000
+nSamples <- 20000
 n.chains <- 8
 }
 
@@ -85,13 +85,19 @@ model_string.logistic_random_slopes <- "model{
 
    # Random effects
    for(j in 1:numVillages){
-    beta[j,1] ~dnorm(0,0.1)  
-    beta[j,2] ~dnorm(0,0.1)
+    beta[j,1] ~dnorm(mu1,precision1)  
+    beta[j,2] ~dnorm(mu2,precision1)
    }
 
-    for(j in 1:numVillages){
-      pred[j] <- beta[j,1] + beta[j,2]
-    }
+  #Priors - uninformative.  
+  mu1 ~ dnorm(0, 0.01)
+  mu2 ~ dnorm(0, 0.01)
+  precision1 ~ dgamma(0.01, 0.01)
+  precision2 ~ dgamma(0.01, 0.01)
+
+  for(j in 1:numVillages){
+    pred[j] <- beta[j,1] + beta[j,2]
+  }
   }"
 
 
@@ -207,25 +213,6 @@ pander(data.frame(slope.max.mean.index=villages[slope.max.mean], intercept.max.m
 ```
 
 
-### Plot mean intercept and slope by village
-
-```{r}
-plot(slopes.means.modes$mean)
-```
-
-### Calculate credible intervals and widths for 95% credibile intervals which don't contain zero.
-
-```{r}
-sum.logistic_random_slopes <-  summary(samp.coeff.logistic_random_slopes)
-quantiles<-sum.logistic_random_slopes$quantiles
-left.05.quantile.sign  <- sign(quantiles[,1])==-1
-right.95.quantile.sign <- sign(quantiles[,5])==1
-significant <- xor(left.05.quantile.sign ,right.95.quantile.sign)
-beta.significant <- quantiles[significant,]
-pander(data.frame(beta.significant), caption = "significant ")
-credible.widths <- beta.significant[,5]-beta.significant[,1]
-pander(data.frame(credible.widths), caption = "credible widths  ")
-```
 
 ### Conclusions
 
@@ -244,24 +231,5 @@ pander(tables[,,slope.max.mean], caption = "freq for max posterior mean for slop
 
 pander(tables[,,intercept.max.mean], caption = "freq for max posterior mean for intercept coefficient")
 
-#Some exploratory code 
-# acc<- data.frame(accuracy =rep(NaN,65))
-# 
-# for(i in 1:65)
-# {
-#   t <- tables[,,i]
-#   total <- t[1,1]+t[1,2]+t[2,1]+t[2,2]
-#   tp <- t[2,2]
-#   tn <- t[1,1]
-#   accuracy <- (tp+tn)/total
-#   acc[i,]<- accuracy
-# }
-# 
-# plot(acc$accuracy, main="accuracy by village")
-# 
-# villages[which.max(acc$accuracy)]
-# 
-# lm.logistic <- glm(pos ~ net, family = binomial, data = df)
-# summary(lm.logistic)
 ```
 

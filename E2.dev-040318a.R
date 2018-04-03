@@ -3,14 +3,20 @@ setwd("d:/brucebcampbell-git/bayesian-learning-with-R")
 
 load("E2.RData")
 library(R2OpenBUGS)
+library(rjags)
+library(coda)
+library(modeest)
+
 dim(Y1)
 
 cor(Y1, use = "pairwise.complete.obs")
 N <- nrow(Y1)
 p = 6
+
+
 x <- scale(Y1)
+
 stacks_dat <- list(x=x,p = 6,   N = 365)
-library(R2OpenBUGS)
 mlr_inits <- function() {
   list( rho = 0.00)
 }
@@ -19,7 +25,7 @@ mlr_model2 <- function(){
   for(i in 1:N)
   {
     theta[i,1:p] ~ dmnorm(x[i,1:p] ,precision2[,])
-    }
+  }
   
   # Prior for likelihood parameters: mu2, precision2, rho
   rho  ~  dunif(-1,1)
@@ -52,15 +58,44 @@ mlr_model2 <- function(){
     }
   }
 }
-
+n.chains = 1
+nSamples=5000
 samps <- bugs(data = stacks_dat, 
               inits = mlr_inits, 
               parameters.to.save = c("theta","x"), 
               model.file = mlr_model2, 
               codaPkg = TRUE,
-              n.chains = 1, n.burnin=1000, n.iter = 5000, n.thin=10, DIC=F)
+              n.chains = n.chains, n.burnin=1000, n.iter = nSamples, n.thin=10, DIC=F)
 
 out.coda <- read.bugs(samps) 
+
+if(n.chains > 1)
+{
+  gelman.srf <-gelman.diag(out.coda)
+  count.coeff.gt <- sum(gelman.srf$psrf>1.1)
+  count.coeff.gt
+  #pander(data.frame(count.coeff.gt=count.coeff.gt ),caption="Number of coefficients with a a gelman scale reduction factor greater than 1.1" )
+}
+
+chains.ess <- lapply(out.coda,effectiveSize)
+
+first.chain.ess <- chains.ess[1]
+plot(unlist(first.chain.ess), main="Effective Sample Size")
+
+chain <- out.coda[[1]]
+posterior.means <- vector(365*6)
+posterior.modes <- matrix(365*6)
+for( i in 1:(365*6) )
+{  colname <- colnames(chain)[i]
+  print(colname)
+  samples <- chain[,i]
+  
+  posterior.means[i] <-mean(samples)
+  
+  posterior.modes[i] <-mlv(samples)$M
+}
+
+plot(posterior.means, posterior.modes)
 
 plot(out.coda)
      
@@ -73,8 +108,6 @@ library(coda)
 library(modeest)
 library(MASS) 
 library(lattice) 
-
-)
 
 
 
