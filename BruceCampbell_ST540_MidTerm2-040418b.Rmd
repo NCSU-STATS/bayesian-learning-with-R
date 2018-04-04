@@ -10,7 +10,7 @@ bibliography: BruceCampbell_ST540_HW_1.bib
 ---
 ```{r setup, include=FALSE,echo=FALSE}
 rm(list = ls())
-setwd("d:/brucebcampbell-git/bayesian-learning-with-R")
+setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R")
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(dev = 'pdf')
 knitr::opts_chunk$set(cache=TRUE)
@@ -50,29 +50,11 @@ library(coda)
 library(modeest)
 library(MASS)
 load("E2.RData")
-
-DEBUG <- TRUE
-if(DEBUG)
-{
-nSamples <- 5000
-n.chains <- 1
-} else
-{
-nSamples <- 40000
-n.chains <- 8
-}
-```
-
-```{r,echo=FALSE}
 cor.y1 <- cor(Y1, use = "pairwise.complete.obs")
 cov.y1  <- cov(Y1, use = "pairwise.complete.obs")
 heatmap(cor.y1,main = "corr of Y1")
 ggplot(data.frame(Y3=Y3) ,aes(x=1:365, y=Y3)) + geom_point(alpha=0.25) + geom_smooth( method="loess", span=0.22) +ggtitle("Y3")
 ggplot(data.frame(mean.Y1=rowMeans(Y1,na.rm = TRUE)) ,aes(x=1:365, y=mean.Y1)) + geom_point(alpha=0.25) + geom_smooth( method="loess", span=0.22) +ggtitle("Row Means Y1")
-```
-
-
-```{r}
 N <- nrow(Y1)
 p = 6
 Y1.scaled <- scale(Y1)
@@ -91,6 +73,43 @@ for(t in 2:N)
 {
   y[t,] = mvrnorm(1, nu + rho * y[t-1,], Sigma)
 }
+
+#Now Make Test data for validation of the Openbugs 
+# y is our ground truth we add noise, calculate Y2 and Y3, and finally do the data redaction
+y.test = matrix(NA, N,p)
+v0 <- rep(0,6)
+y.test[1,] = y[1,] +mvrnorm(1,v0, Sigma)
+for(t in 2:N) 
+{
+  y.test[t,] = y[t,]+ mvrnorm(1, v0, Sigma*0.1)
+}
+
+Y1.test <-y
+Y2.test <- y.test[,1]
+Y3.test <- rowMeans(y.test)
+
+#redaction pproportions
+Y1.redaction.prop <- .8
+Y2.redaction.prop <- .1
+Y3.redaction.prop <- .1
+
+Y1.test.redacted <- y.test
+Y2.test.redacted <- Y2.test
+Y3.test.redacted <- Y3.test
+
+Y1.test.redacted <- unlist(Y1.test.redacted)
+Y1.NA.index <- sample(length(Y1.test.redacted), floor(length(Y1.test.redacted)* Y1.redaction.prop))
+Y1.test.redacted[Y1.NA.index] <- NA
+Y1.test.redacted<-matrix(Y1.test.redacted,ncol=6, byrow=FALSE)
+
+Y2.NA.index <- sample(length(Y2.test.redacted), floor(length(Y2.test.redacted)* Y2.redaction.prop))
+Y2.test.redacted[Y2.NA.index] <- NA
+
+Y3.NA.index <- sample(length(Y3.test.redacted), floor(length(Y3.test.redacted)* Y3.redaction.prop))
+Y3.test.redacted[Y3.NA.index] <- NA
+save(Y1.test,Y2.test,Y3.test,Y1.test.redacted,Y2.test.redacted,Y3.test.redacted,file="TestData.RData")
+
+
 plot(y[,1])
 # Jags code to fit the model to the simulated data
 model_code = '
@@ -382,6 +401,140 @@ save(out.coda,file = "out.coda_BUGS_VAR.RData")
 }else{
   load("out.coda_BUGS_MVN.RData")
 }
+
+if(n.chains > 1)
+{
+  gelman.srf <-gelman.diag(out.coda)
+  count.coeff.gt <- sum(gelman.srf$psrf>1.1)
+  count.coeff.gt
+}
+
+chains.ess <- lapply(out.coda,effectiveSize)
+
+first.chain.ess <- chains.ess[1]
+plot(unlist(first.chain.ess), main="Effective Sample Size")
+
+chain <- out.coda[[1]]
+posterior.means <- list()
+posterior.modes <- list()
+
+for( i in 1:(365*6) )
+{  
+  colname <- colnames(chain)[i]
+  
+  samples <- chain[,i]
+  
+  posterior.means[i] <-mean(samples)
+  
+  posterior.modes[i] <-mlv(samples)$M
+}
+
+plot(posterior.means, posterior.modes)
+
+theta.map <-  matrix(unlist(posterior.means)[1:2190],ncol=6, byrow=FALSE)
+
+unscaled.theta.map <- ( theta.map +colMeans(Y1,na.rm = TRUE)) *  apply(Y1, 2,sd,na.rm = TRUE)
+
+write.csv(unscaled.theta.map,file = "unscaled-theta-map.csv")
+hist(unscaled.theta.map[,1])
+
+hist(Y1[,1])
+```
+
+
+
+
+# VAR(1) on Y1 with starting values, Y2 and Y3 incorporated imputation in OpenBugs
+
+```{r, results='hide', message=FALSE, warning=FALSE}
+rm(list = ls())
+setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R")
+load("E2.RData")
+library(R2OpenBUGS)
+library(rjags)
+library(coda)
+library(modeest)
+N <- nrow(Y1)
+p = 6
+
+mlr_model2 <- function(){
+
+      for(i in 2:N) {
+    Y1pred[i,1:p] ~ dmnorm( theta[i,1:p] ,precision[,])
+        for(j in 1:p){
+         theta[i,j]<-  mu2[j] + rho * Y1[i-1,j]
+        }
+        
+        
+        Y2[i] ~ dnorm( rtheta[i,1],sigmaY)
+        
+        rm[i] <-theta[i,1]
+        #Y3[i] ~ dnorm( thetaMean[i],sigmaY3 )
+        thetaMean[i] <- theta[i,1]/6 +theta[i,2]/6 +theta[i,3]/6 +theta[i,4]/6 +theta[i,5]/6 +theta[i,6]/6
+       
+        
+  }
+  
+  # Priors
+  rho  ~  dunif(-1,1)
+  sigmaY  ~  dnorm(0,0.01)
+    
+  for(j in 1:p)
+  {
+    mu2[j]  ~  dnorm(0,0.01)
+  }
+  
+  precision[1:p,1:p] ~ dwish(R[,],k)
+  
+  # Missing data model for Y1
+  for(i in 1:N){
+    Y1[i,1:p]~dmnorm(Y1_mn[],Y1_prec[,])
+  }
+  
+  # Priors for missing-data model parameters
+  for(j in 1:p){
+    Y1_mn[j]~dnorm(0,0.01)
+  }
+  Y1_prec[1:p,1:p]~dwish(R[,],k)
+  Y1_cov[1:p,1:p]<-inverse(Y1_prec[,])
+  
+  k <- p+0.1
+  for(j1 in 1:p)
+  {
+    for(j2 in 1:p)
+    {
+      R[j1,j2] <- 0.1*equals(j1,j2)
+    }
+  }
+}
+
+Y1.scaled <- scale(Y1)
+Y2.scaled <- scale(Y2)
+Y3.scaled <- scale(Y3)
+stacks_dat <- list(Y1=Y1.scaled,Y2=Y2.scaled, p = 6,   N = 365)
+mlr_inits <- function() {   list( rho = 0.00) }
+parameters.to.save = c("Y1pred","precision")
+#if(TRUE)
+#{
+  samps <- bugs(data = stacks_dat,inits = mlr_inits, parameters.to.save =parameters.to.save, 
+              model.file = mlr_model2, 
+              codaPkg = TRUE,
+              n.chains = 1, n.burnin=50, n.iter = 200, DIC=F)#, n.thin=10
+
+```
+
+
+
+
+```{r}
+  
+  
+out.coda <- read.bugs(samps)
+save(out.coda,file = "out.coda_BUGS_VAR.RData")
+# 
+# }else{
+#   load("out.coda_BUGS_MVN.RData")
+# }
 
 if(n.chains > 1)
 {

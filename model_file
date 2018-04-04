@@ -1,5 +1,4 @@
 model{
-
   # Likelihood for theta[1,1:p]:
   #theta[1,1:p] ~ dmnorm(mu[1,1:p],precision1)
   
