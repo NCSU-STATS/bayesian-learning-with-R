@@ -10,7 +10,7 @@ bibliography: BruceCampbell_ST540_HW_1.bib
 ---
 ```{r setup, include=FALSE,echo=FALSE}
 rm(list = ls())
-setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R")
+setwd("d:/brucebcampbell-git/bayesian-learning-with-R")
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(dev = 'pdf')
 knitr::opts_chunk$set(cache=TRUE)
@@ -30,12 +30,26 @@ library(GGally)
 
 
 
-### Model definition and MCMC sampling
+# VAR(1) in JAGS
+
+This section is a test section where we generate and fit a vector autoregressive  model - $VAR(1) \in \mathbf{R}^6$ given by 
+
+$$y_{t} = \nu + \rho * y_{t-1} + \epsilon$$ 
+
+$$\epsilon \sim N(0,\Sigma)$$
+
+We use the $y1$ data to calculate a NaN firendly sample covariance and then we find the nearest positive semidefinite matrix to use to generate data for the model. 
+
+Notes
+- imputation is not working for this model
+- this section seeks to find the parameters that best explain the data
 
 ```{r}
 library(rjags)
 library(coda)
 library(modeest)
+library(MASS)
+load("E2.RData")
 
 DEBUG <- TRUE
 if(DEBUG)
@@ -47,204 +61,222 @@ n.chains <- 1
 nSamples <- 40000
 n.chains <- 8
 }
+cor.y1 <- cor(Y1, use = "pairwise.complete.obs")
+cov.y1  <- cov(Y1, use = "pairwise.complete.obs")
 
-load("E2.RData")
+N <- nrow(Y1)
+p = 6
+Y1.scaled <- scale(Y1)
+# Try to simulate using the corr
+#install.packages("Matrix")
+library("Matrix")
 
-X.net <- as.numeric((X$netuse==1) | (X$treated==1))
-Y <- pos
-n <- length(X.net)
+sig <- nearPD(cov.y1)
+N = 365
+Sigma = sig$mat 
+rho = .6
+nu = matrix(rep(.1,6), p, 1)
+y = matrix(NA, N,p)
+y[1,] = nu
+for(t in 2:N) 
+{
+  y[t,] = mvrnorm(1, nu + rho * y[t-1,], Sigma)
+}
+plot(y[,1])
+# Jags code to fit the model to the simulated data
+model_code = '
+model
+{
+  # Likelihood
+  for (t in 2:N) 
+  {
+    y[t, ] ~ dmnorm(mu[t, ], precisionAR)
+    mu[t, 1:p] <- nu + rho * y[t-1,]
+  }
+  precisionAR ~ dwish(I, p+1)
+  Sigma <- inverse(precisionAR)  
+  
+  # Priors
+  rho ~ dunif(-1, 1)
+  for(i in 1:p) 
+  {
+    nu[i] ~ dnorm(0, 0.01)
+  }
 
-df <- data.frame(cbind(X.net,village,pos))
-names(df) <- c("net","village","pos")
-numVillages <- length(unique(df$village))
-villages <- df$village
+  # Missing data model for y - not working in JAGS
+  #for(i in 1:N)
+  #{
+    #y[i,1:p]~dmnorm(x_mn[],x_prec[,])
+  #}
+  
+  # Priors for missing-data model parameters
+  for(j in 1:p)
+  {
+    x_mn[j]~dnorm(0,0.01)
+  }
+  x_prec[1:p,1:p]~dwish(R[,],k)
+  x_cov[1:p,1:p]<-inverse(x_prec[,])
+  k <- p+0.1
+  for(j1 in 1:p)
+  {
+    for(j2 in 1:p)
+    {
+      R[j1,j2] <- 0.1*equals(j1,j2)
+    }     
+  }
+}
+'
+# Set up the data
+model_data = list(N = N, p = p, y = y, I = diag(p))
+# Choose the parameters to watch
+model_parameters =  c("nu", "rho", "Sigma","y")
 
-model_string.logistic_random_slopes <- "model{
-   # Likelihood
-   for(i in 1:n){
-      Y[i]    ~ dbern(q[i])
-      logit(q[i]) <- beta[villages[i],1] + beta[villages[i],2]*X.net[i]
-   }
+model <- jags.model(textConnection(model_code),data = model_data,n.chains = n.chains)#Compile Model Graph
 
-   # Random effects
-   for(j in 1:numVillages){
-    beta[j,1] ~dnorm(0,0.1)  
-    beta[j,2] ~dnorm(0,0.1)
-   }
+update(model, nSamples, progress.bar="none"); # Burnin
+out.coda  <- coda.samples(model, variable.names=model_parameters,n.iter=2*nSamples) 
 
-    for(j in 1:numVillages){
-      pred[j] <- beta[j,1] + beta[j,2]
-    }
-  }"
+#plot(out.coda )
 
+if(n.chains > 1)
+{
+  gelman.srf <-gelman.diag(out.coda)
+  plot(gelman.srf$psrf,main = "Gelman Diagnostic")
+}
 
-model.logistic_random_slopes <- jags.model(textConnection(model_string.logistic_random_slopes), data = list(Y=Y,X.net=X.net,n=n,numVillages=numVillages,villages=villages),n.chains = n.chains)## Compiling model graph
+chains.ess <- lapply(out.coda,effectiveSize)
+first.chain.ess <- chains.ess[1]
+plot(unlist(first.chain.ess), main="Effective Sample Size")
 
-update(model.logistic_random_slopes, nSamples, progress.bar="none"); # Burnin
-samp.coeff.logistic_random_slopes <- coda.samples(model.logistic_random_slopes, variable.names=c("beta"),n.iter=2*nSamples) 
+chain <- out.coda[[1]]
+posterior.means <- list()
+posterior.modes <- list()
+for( i in 1:length(colnames(chain)) )
+{  
+  colname <- colnames(chain)[i]
+  samples <- chain[,i]
+  posterior.means[colname] <-mean(samples)
+  posterior.modes[colname] <-mlv(samples)$M
+}
+
+# plot(posterior.means,posterior.modes) # Nice and unimodal
+
+Sigma.map <- unlist(posterior.means)[1:36]
+Sigma.model<- unlist(sig$mat)
+plot(Sigma.map,Sigma.model)
+rho.map <- unlist(posterior.means)[43]
+
+nu.map <-  unlist(posterior.means)[37:42]
+ 
+# y.map <-  matrix(unlist(posterior.means)[44:2233],ncol=6, byrow=FALSE)
+# plot(y[,1]-y.map[,1]) 
 ```
 
-###MCMC Chain diagnostics
+# Missing data imputation in Openbugs
 
-Chain diagnostics are optionally produced with the deubg flag.  These were run and inspected by hand for chain convergence.  The debug flag is set to false for rendering the final markdown in the report.  For the final version we calculate the gelman scale reduction factors for each parameter.  The scalre reduction factor near 1 means that between and within chain variance are nearly equal.  We report the number of coefficients with a gelman scale reduction factor greater than one. 
+Here we try to implement missing data imputation in OpenBugs. We use the data set y1
 
-```{r}
+```{r, results='hide', message=FALSE, warning=FALSE}
+rm(list = ls())
+setwd("d:/brucebcampbell-git/bayesian-learning-with-R")
+load("E2.RData")
+library(R2OpenBUGS)
+library(rjags)
+library(coda)
+library(modeest)
+N <- nrow(Y1)
+p = 6
+x <- scale(Y1)
 
-gelman.srf <-gelman.diag(samp.coeff.logistic_random_slopes)
-
-count.coeff.gt <- sum(gelman.srf$psrf>1.1)
-
-pander(data.frame(count.coeff.gt=count.coeff.gt ),caption="Number of coefficients with a a gelman scale reduction factor greater than 1.1" )
-
-
-if (DEBUG) 
+mlr_model2 <- function(){
+  for(i in 1:N)
   {
-  autocorr.plot(samp.coeff.logistic_random_slopes)
-
-  plot(samp.coeff.logistic_random_slopes)
-
-  #Sample again and estimate posterior means and MAP posterior modes.
-  samp.coeff.logistic_random_slopes.jags <- jags.samples(model.logistic_random_slopes, variable.names = c("beta"), n.iter = nSamples, progress.bar = "none")
-  posterior_means.logistic_random_slopes <- lapply(samp.coeff.logistic_random_slopes.jags, apply, 1, "mean")
-  pander(posterior_means.logistic_random_slopes, caption = "posterior means second sample")
+    theta[i,1:p] ~ dmnorm(x[i,1:p] ,precision2[,])
+  }
   
-  posterior_modes.logistic_random_slopes <- lapply(samp.coeff.logistic_random_slopes.jags, apply, 1, "mlv")
-  posterior_modes.logistic_random_slopes$beta[[1]]$M
+  # Prior for likelihood parameters: mu2, precision2, rho
+  rho  ~  dunif(-1,1)
   
-  if(n.chains>1)
+  for(j in 1:p)
   {
-  gelman.plot(samp.coeff.logistic_random_slopes)
+    mu2[j]  ~  dnorm(0,0.01)
+  }
+  
+  precision2[1:p,1:p] ~ dwish(R[,],k)
+  
+  # Missing data model for x
+  for(i in 1:N){
+    x[i,1:p]~dmnorm(x_mn[],x_prec[,])
+  }
+  
+  # Priors for missing-data model parameters
+  for(j in 1:p){
+    x_mn[j]~dnorm(0,0.01)
+  }
+  x_prec[1:p,1:p]~dwish(R[,],k)
+  x_cov[1:p,1:p]<-inverse(x_prec[,])
+  
+  k <- p+0.1
+  for(j1 in 1:p)
+  {
+    for(j2 in 1:p)
+    {
+      R[j1,j2] <- 0.1*equals(j1,j2)
+    }
   }
 }
 
-```
+n.chains = 1
+nSamples=10000
+stacks_dat <- list(x=x,p = 6,   N = 365)
+mlr_inits <- function() {   list( rho = 0.00) }
 
-### Calculate the effective samples size of the chains
+samps <- bugs(data = stacks_dat, 
+              inits = mlr_inits, 
+              parameters.to.save = c("theta"), 
+              model.file = mlr_model2, 
+              codaPkg = TRUE,
+              n.chains = n.chains, n.burnin=2000, n.iter = nSamples, n.thin=10, DIC=F)
 
-We calculate the efective sample size (ESS) below and make a plot for the first chain.  We noted sigificant autocorrelation in some of the afc plots for the intercepts and slope parameters.  As a follow up we might run the MCMC chains for a lot longer on more compute enabled hardware. We'd also like to investigate the relationship between coefficients with low ESS and those which are not deemed significant by the 95% credible intervals.  
+out.coda <- read.bugs(samps) 
 
-```{r}
-chains.ess <- lapply(samp.coeff.logistic_random_slopes,effectiveSize)
+if(n.chains > 1)
+{
+  gelman.srf <-gelman.diag(out.coda)
+  count.coeff.gt <- sum(gelman.srf$psrf>1.1)
+  count.coeff.gt
+}
+
+chains.ess <- lapply(out.coda,effectiveSize)
 
 first.chain.ess <- chains.ess[1]
-plot(unlist(first.chain.ess)/nSamples, main="Effective Sample Size as proportion of chain length")
-```
+plot(unlist(first.chain.ess), main="Effective Sample Size")
 
-### Calculate posterior means and MAP estimates for interceps and slopes
+chain <- out.coda[[1]]
+posterior.means <- list()
+posterior.modes <- list()
 
-```{r}
-#Allocate matrix for means and modes of the intercepts
-intercepts.means.modes <- data.frame(mean = rep(NaN,65),mode=rep(NaN,65))
-
-#First get a chain 
-chain <- samp.coeff.logistic_random_slopes[[1]]
-#Alpha first 
-for( i in 1:65)
-{
+for( i in 1:(365*6) )
+{  
   colname <- colnames(chain)[i]
   
   samples <- chain[,i]
   
-  sample.mode <- mlv(samples)
+  posterior.means[i] <-mean(samples)
   
-  sample.mean <- mean(samples)
-  
-  intercepts.means.modes[i,1] <- sample.mean
-  
-  intercepts.means.modes[i,2] <- sample.mode$M
-  
+  posterior.modes[i] <-mlv(samples)$M
 }
 
-intercept.max.mean <- which.max(intercepts.means.modes$mean)
-intercept.max.mode <- which.max(intercepts.means.modes$mode)
+plot(posterior.means, posterior.modes)
 
-pander(data.frame(intercept.max.mean.index=villages[intercept.max.mean], intercept.max.mode.index=villages[intercept.max.mode]), caption="Village index of max mean and mode for intercept posteriors")
+theta.map <-  matrix(unlist(posterior.means)[1:2190],ncol=6, byrow=FALSE)
 
-#Allocate matrix for means and modes of the slopes
-slopes.means.modes <- data.frame(mean = rep(NaN,65),mode=rep(NaN,65))
+unscaled.theta.map <- ( theta.map +colMeans(Y1,na.rm = TRUE)) *  apply(Y1, 2,sd,na.rm = TRUE)
 
-#First get a chain 
-chain <- samp.coeff.logistic_random_slopes[[1]]
-#Alpha first 
-for( i in 66:130)
-{
-  colname <- colnames(chain)[i]
-  
-  samples <- chain[,i]
-  
-  sample.mode <- mlv(samples)
-  
-  sample.mean <- mean(samples)
-  
-  slopes.means.modes[i-65,1] <- sample.mean
-  
-  slopes.means.modes[i-65,2] <- sample.mode$M
-  
-}
-rownames(slopes.means.modes) <- c()
+write.csv(unscaled.theta.map,file = "unscaled-theta-map.csv")
+hist(unscaled.theta.map[,1])
 
-slope.max.mean <- which.max(slopes.means.modes$mean)
-slope.max.mode <- which.max(slopes.means.modes$mode)
+hist(Y1[,1])
 
-pander(data.frame(slope.max.mean.index=villages[slope.max.mean], intercept.max.mode.index=villages[slope.max.mode]), caption="Village index of max mean and mode for slope posteriors")
+
 ```
-
-
-### Plot mean intercept and slope by village
-
-```{r}
-plot(slopes.means.modes$mean)
-```
-
-### Calculate credible intervals and widths for 95% credibile intervals which don't contain zero.
-
-```{r}
-sum.logistic_random_slopes <-  summary(samp.coeff.logistic_random_slopes)
-quantiles<-sum.logistic_random_slopes$quantiles
-left.05.quantile.sign  <- sign(quantiles[,1])==-1
-right.95.quantile.sign <- sign(quantiles[,5])==1
-significant <- xor(left.05.quantile.sign ,right.95.quantile.sign)
-beta.significant <- quantiles[significant,]
-pander(data.frame(beta.significant), caption = "significant ")
-credible.widths <- beta.significant[,5]-beta.significant[,1]
-pander(data.frame(credible.widths), caption = "credible widths  ")
-```
-
-### Conclusions
-
-(2)MCMC algorithm converge?
-(3) Do you see evidence that the slopes and/or intercepts vary by village?
-(4) Which village has the largest intercept? Slope? Does this agree with the data in these
-villages?
-
-The MCMC algorithm converged for all the parameters. We saw evidence that the slopes and intercepts vary by village. Below we plot the table for the villages max intercept and slope. We see large values for $(net,pos)=(0,0)$ and $(net,pos)=(1,1)$ for these villages. 
-
-
-```{r}
-tables <- table(df$net,df$pos,df$village)
-
-pander(tables[,,slope.max.mean], caption = "freq for max posterior mean for slope coefficient")
-
-pander(tables[,,intercept.max.mean], caption = "freq for max posterior mean for intercept coefficient")
-
-#Some exploratory code 
-# acc<- data.frame(accuracy =rep(NaN,65))
-# 
-# for(i in 1:65)
-# {
-#   t <- tables[,,i]
-#   total <- t[1,1]+t[1,2]+t[2,1]+t[2,2]
-#   tp <- t[2,2]
-#   tn <- t[1,1]
-#   accuracy <- (tp+tn)/total
-#   acc[i,]<- accuracy
-# }
-# 
-# plot(acc$accuracy, main="accuracy by village")
-# 
-# villages[which.max(acc$accuracy)]
-# 
-# lm.logistic <- glm(pos ~ net, family = binomial, data = df)
-# summary(lm.logistic)
-```
-
