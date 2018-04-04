@@ -17,16 +17,13 @@ n.chains <- 2
 
 load("E2.RData")
 
-dim(Y1)
 
+dim(Y1)
 cor.y1 <- cor(Y1, use = "pairwise.complete.obs")
 cov.y1  <- cov(Y1, use = "pairwise.complete.obs")
-
 N <- nrow(Y1)
 p = 6
 Y1.scaled <- scale(Y1)
-# Try to simulate using the corr
-#install.packages("Matrix")
 library("Matrix")
 
 sig <- nearPD(cov.y1)

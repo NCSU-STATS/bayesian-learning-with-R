@@ -1,18 +1,9 @@
-# Header ------------------------------------------------------------------
-
 # Multivariate Autoregressive models, commonly known as Vector AR (VAR) models
-# Andrew Parnell
-
-# The VAR model is a multivariate extension of the standard AR(p) model. In this code I just fit the VAR(1) model but it is easily extended to VAR(p)
-
-# Some boiler plate code to clear the workspace and load in required packages
+# The VAR model is a multivariate extension of the standard AR(p) model. 
+#In this code I just fit the VAR(1) model but it is easily extended to VAR(p)
 rm(list=ls())
 library(R2jags)
-
 library(MASS) # Used to generate MVN samples
-
-# Maths -------------------------------------------------------------------
-
 # Description of the Bayesian model fitted in this file
 # Notation
 # y_t = multivariate response variable at time t, t=1,...,T. Each y_t is a vetor of dimension k
@@ -32,8 +23,6 @@ library(MASS) # Used to generate MVN samples
 # Sigma ~ Inverse Wishart(I, k+1)
 
 # Simulate data -----------------------------------------------------------
-
-# Some R code to simulate data from the above model
 T = 100
 k = 2
 Sigma = matrix(c(1, 0.2, 0.2, 1), 2, 2)
@@ -54,7 +43,6 @@ par(mfrow = c(1, 1))
 
 # Jags code ---------------------------------------------------------------
 
-# Jags code to fit the model to the simulated data
 model_code = '
 model
 {

@@ -56,6 +56,7 @@ first.miss.y = paste0("x[",y.miss[1],"]")
 ## in x
 plot(samples[[1]][,first.miss.x])
 
+
 ## in y
 plot(samples[[1]][,first.miss.y])
 
