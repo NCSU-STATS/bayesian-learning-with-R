@@ -1,0 +1,132 @@
+---
+title: "Applied Bayesian Analysis : NCSU ST 540"
+subtitle: "Midterm2"
+author: "Bruce Campbell"
+fontsize: 11pt
+output: pdf_document
+bibliography: BruceCampbell_ST540_HW_1.bib
+---
+
+---
+```{r setup, include=FALSE,echo=FALSE}
+rm(list = ls())
+setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R")
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dev = 'pdf')
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(tidy=TRUE)
+knitr::opts_chunk$set(prompt=FALSE)
+knitr::opts_chunk$set(fig.height=5)
+knitr::opts_chunk$set(fig.width=6)
+knitr::opts_chunk$set(warning=FALSE)
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_knit$set(root.dir = ".")
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
+library(latex2exp)   
+library(pander)
+library(ggplot2)
+library(GGally)
+```
+
+```{r,echo=FALSE}
+library(rjags)
+library(coda)
+library(modeest)
+library(MASS)
+load("E2.RData")
+cor.y1 <- cor(Y1, use = "pairwise.complete.obs")
+cov.y1  <- cov(Y1, use = "pairwise.complete.obs")
+ggplot(data.frame(Y3=Y3) ,aes(x=1:365, y=Y3)) + geom_point(alpha=0.25) + geom_smooth( method="loess", span=0.22) +ggtitle("Y3")
+ggplot(data.frame(mean.Y1=rowMeans(Y1,na.rm = TRUE)) ,aes(x=1:365, y=mean.Y1)) + geom_point(alpha=0.25) + geom_smooth( method="loess", span=0.22) +ggtitle("Row Means Y1")
+N <- nrow(Y1)
+p = 6
+library(R2OpenBUGS)
+
+openbugs_model <- function(){
+  
+  for(i in 1:N) {
+  Y1pred[i,1:p] ~ dmnorm( theta[i,1:p] ,precision[,])
+      for(j in 1:p){
+       theta[i,j]<-  x[i,j] #This is where we can add Y2 and Y3 for generative model.
+      }
+  }
+  
+  precision[1:p,1:p] ~ dwish(R[,],k)
+  
+  # Missing data model for x
+  for(i in 1:N){
+    x[i,1:p]~dmnorm(x_mn[],x_prec[,])
+  }
+  
+  # Priors for missing-data model parameters
+  for(j in 1:p){
+    x_mn[j]~dnorm(0,0.01)
+  }
+  x_prec[1:p,1:p]~dwish(R[,],k)
+  
+  k <- p+0.1
+  for(j1 in 1:p)
+  {
+    for(j2 in 1:p)
+    {
+      R[j1,j2] <- 0.1*equals(j1,j2)
+    }
+  }
+}
+
+n.chains = 1
+nSamples=10000
+x <- scale(Y1)
+stacks_dat <- list(x=x,p = 6,   N = 365)
+mlr_inits <- function() {   list( rho = 0.00) }
+samps <- bugs(data = stacks_dat, 
+            inits = mlr_inits, 
+            parameters.to.save = c("Y1pred"), 
+            model.file = openbugs_model, 
+            codaPkg = TRUE,
+            n.chains = n.chains, n.burnin=2000, n.iter = nSamples, n.thin=10, DIC=F)
+
+out.coda <- read.bugs(samps)
+
+if(n.chains > 1)
+{
+  gelman.srf <-gelman.diag(out.coda)
+  count.coeff.gt <- sum(gelman.srf$psrf>1.1)
+  count.coeff.gt
+}
+
+chains.ess <- lapply(out.coda,effectiveSize)
+
+first.chain.ess <- chains.ess[1]
+plot(unlist(first.chain.ess), main="Effective Sample Size")
+
+chain <- out.coda[[1]]
+posterior.means <- list()
+posterior.modes <- list()
+
+for( i in 1:(365*6) )
+{  
+  colname <- colnames(chain)[i]
+
+  samples <- chain[,i]
+  
+  posterior.means[i] <-mean(samples)
+  
+  posterior.modes[i] <-mlv(samples)$M
+}
+
+plot(posterior.means, posterior.modes)
+
+theta.map <-  matrix(unlist(posterior.means)[1:2190],ncol=6, byrow=FALSE)
+
+unscaled.theta.map <- ( theta.map +colMeans(Y1,na.rm = TRUE)) *  apply(Y1, 2,sd,na.rm = TRUE)
+
+image(Y1, main="Y1")
+
+image(unscaled.theta.map, main="Imputed")
+
+Sigma.map <-  matrix(unlist(posterior.means)[2190:2190+36],ncol=6, byrow=FALSE)
+heatmap(Sigma.map, main = "MAP Sigma")
+heatmap(cov.y1,main = "cov of Y1")
+write.csv(unscaled.theta.map,file = "unscaled-theta-map.csv")
+```
