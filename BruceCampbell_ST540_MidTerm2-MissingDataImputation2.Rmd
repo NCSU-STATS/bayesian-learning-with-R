@@ -109,90 +109,33 @@ library(R2OpenBUGS)
 
 N <- nrow(Y1)
 p = 6
-n.chains = 1
-n.thin = 1
-n.burnin =1000
-n.samples =10000
+n.chains = 2
+n.thin = 2
+n.burnin =5000
+n.samples =20000
 
-openbugs_model_VAR <- function(){
-  
-  for(j in 1:p){
-    theta[1,j]  <- Y1[1,j]
-  }
-  
-  Y1pred[1,1:p] ~ dmnorm( Y1[1,1:p] ,precision[,])
-  
-  
-  for(i in 2:N) {
-    Y1pred[i,1:p] ~ dmnorm( theta[i,1:p] ,precision[,])
-    
-    Y2[i] ~ dnorm(theta[i,1],sigmaY2)
-    
-    theta[i,1]<-  mu2[1] + rho * Y1[i-1,1]
-    theta[i,2]<-  mu2[2] + rho * Y1[i-1,2]
-    theta[i,3]<-  mu2[3] + rho * Y1[i-1,3]
-    theta[i,4]<-  mu2[4] + rho * Y1[i-1,4]
-    theta[i,5]<-  mu2[5] + rho * Y1[i-1,5]
-    theta[i,6]<-  mu2[6] + rho * Y1[i-1,6]
+x<- as.matrix(Y1)
 
-    # Causes a compilation error :( with the Openbugs engine - we use Y3 in the prior for Y1 imputation
-    #Y3[i] ~ dnorm(thetaBar[i],sigmaY3)
-    #thetaBar[i] <- 1/6 * (theta[i,2] +theta[i,2]+ theta[i,3]+ theta[i,4] +theta[i,5] +theta[i,6])
-    }
-  
-  # Priors
-  rho  ~  dunif(0,1)
-  sigmaY3 ~ dnorm(0, 0.01)
-  sigmaY2  ~ dnorm(0, 0.01)
+stacks_dat <- list(x=x,Y2=Y2,Y3=Y3,p = 6,   N = 365)
+
+mlr_model <- function(){
+
+  for(i in 1:N) {
+    #x[i,1] ~ dnorm(theta[i,1], inv.var)
+    Y2[i] ~ dnorm(theta[i,1], inv.var)
     
-  for(j in 1:p)
-  {
-    mu2[j]  ~  dnorm(0,0.01)
+    Y3[i] ~ dnorm(thetaBar[i] , inv.var)
+    thetaBar[i] <- 1/6 *(theta[i,1]+theta[i,2]+theta[i,3]+theta[i,4]+theta[i,5]+theta[i,6])
   }
-  
-  precision[1:p,1:p] ~ dwish(R[,],k)
-  
-  SigmaVAR[1:p,1:p] <- inverse(precision[1:p,1:p])
-  
-  # Missing data model for x
+    
+  inv.var   ~ dgamma(0.01, 0.01)
   for(i in 1:N){
-    Y1[i,1:p]~dmnorm(Y1_mn[],Y1_prec[,])
-  }
-  
-  # Priors for missing-data model parameters
-  for(j in 1:p){
-    Y1_mn[j]~dnorm(Y3[j],0.01)
-  }
-  Y1_prec[1:p,1:p]~dwish(R[,],k)
-  
-  k <- p+0.1
-  for(j1 in 1:p)
-  {
-    for(j2 in 1:p)
-    {
-      R[j1,j2] <- 0.01*equals(j1,j2)
+    for(j in 1:p){
+      theta[i,j] ~ dnorm(x[i,1],inv.var)
     }
   }
-}
 
-openbugs_model_generative <- function(){
-  for(i in 1:N)
-  {
-    theta[i,1:p] ~ dmnorm(x[i,1:p] ,precision[,])
-  }
-  
-  # Prior for likelihood parameters: mu2, precision2, rho
-  rho  ~  dunif(-1,1)
-  
-  for(j in 1:p)
-  {
-    mu2[j]  ~  dnorm(0,0.01)
-  }
-  
-  precision[1:p,1:p] ~ dwish(R[,],k)
-  SigmaVAR[1:p,1:p] <- inverse(precision[1:p,1:p])
-  
-  # Missing data model for x
+    # Missing data model for x
   for(i in 1:N){
     x[i,1:p]~dmnorm(x_mn[],x_prec[,])
   }
@@ -204,28 +147,22 @@ openbugs_model_generative <- function(){
   x_prec[1:p,1:p]~dwish(R[,],k)
   x_cov[1:p,1:p]<-inverse(x_prec[,])
   
-  k <- p+0.1
-  for(j1 in 1:p)
-  {
-    for(j2 in 1:p)
-    {
-      R[j1,j2] <- 0.1*equals(j1,j2)
-    }
-  }
+  k<-p+0.1
+  for(j1 in 1:p){for(j2 in 1:p){R[j1,j2]<-0.1*equals(j1,j2)}} #R is diagonal
+}
+mlr_inits <- function() {
+  list(  I = diag(p), tau = 0.01)
 }
 
-stacks_dat <- list(Y1=scale(Y1.test),Y2=as.vector(scale(Y2)),Y3=as.vector(scale(Y3)), p = 6,   N = 365)
-
-mlr_inits <- function() {   list( rho = 0.50, sigmaY2=1,sigmaY3=1, Y1_mn=rep(p,0) ) }
 samps <- bugs(data = stacks_dat, 
             inits = mlr_inits, 
-            parameters.to.save = c("theta","SigmaVAR"), 
-            model.file = openbugs_model_generative, 
-            codaPkg = TRUE,debug=TRUE,
+            parameters.to.save = c("theta"), 
+            model.file = mlr_model, 
+            codaPkg = TRUE,debug=FALSE,
             n.chains = n.chains, n.burnin=n.burnin, n.iter = n.samples,n.thin = n.thin, DIC=F)
 
 out.coda <- read.bugs(samps)
-#save(out.coda,file = "out.coda_OPENBUGS_VAR1.RData")
+#save(out.coda,file = "out.coda_OPENBUGS_Imputation.RData")
 
 if(n.chains > 1)
 {
@@ -244,53 +181,57 @@ first.chain.ess <- chains.ess[1]
 plot(unlist(first.chain.ess), main="Effective Sample Size")
 
 chain <- out.coda[[1]]
+# 
+# imputedY1 <- Y1
+# for( i in 1:ncol(chain) )
+# { 
+#   colname <- colnames(chain)[i]
+#   idx <-gsub('x','',colname)
+#   idx <-gsub('\\[','',idx)
+#   idx<-gsub('\\]','',idx)
+#   strsplit(idx,",")
+#   idi <- as.numeric(strsplit(idx,",")[[1]][1])
+#   idj <- as.numeric(strsplit(idx,",")[[1]][2])
+#   
+#   if(grepl("Sigma",colname)  )
+#   {
+#     print(paste("skipping ",colname,sep=""))
+#     next
+#   }
+#   samples <- chain[,i]
+#   imputedY1[idi,idj] <-mlv(samples)$M
+# }
 
-Y1.posterior.modes <- list()
-
-for( i in 1:(365*6+36) )
-{  
+theta.posterior.modes <- list()
+for( i in 1:ncol(chain) )
+{ 
   colname <- colnames(chain)[i]
-  if(grepl("Sigma",colname)  )
+  if(grepl("theta",colname)  )
   {
-    print(paste("skipping ",colname,sep=""))
+    samples <- chain[,i]
+    theta.posterior.modes[colname]  <-mlv(samples)$M
+    
+  }else
+  {
     next
   }
-  samples <- chain[,i]
-  samplesId <- samples<4
-  red <- samples[samplesId]
-  Y1.posterior.modes[colname] <-mlv(red)$M
 }
-
-theta.map <-  matrix(unlist(Y1.posterior.modes),ncol=6, byrow=FALSE)
-
-unscaled.theta.map <- ( theta.map +colMeans(Y1,na.rm = TRUE)) *  apply(Y1, 2,sd,na.rm = TRUE)
-
-image(Y1, main="Y1")
-
-image(unscaled.theta.map, main="Imputed")
-
-SigmaVAR.posterior.modes <- list()
-
-for( i in 1:(365*6+36) )
-{  
-  colname <- colnames(chain)[i]
-  if(grepl("Sigma",colname) ==FALSE )
-  {
-    next
-  }
-  samples <- chain[,i]
-  SigmaVAR.posterior.modes[colname] <-mlv(samples)$M
-}
-
-Sigma.map <-  matrix(unlist(SigmaVAR.posterior.modes),ncol=6, byrow=FALSE)
-image(Sigma.map, main = "MAP Sigma")
+theta.posterior <-  matrix(unlist(theta.posterior.modes),ncol=6, byrow=FALSE)
+image(theta.posterior)
+boxplot(theta.posterior)
 
 
-b <- unscaled.theta.map[!is.na(Y1)]
-c <- Y1[!is.na(Y1)]
 
-plot(b,c)
-write.csv(unscaled.theta.map,file = "unscaled-theta-map.csv")
+
+#image(Y1, main="Y1")
+
+
+
+
+
+#image(imputedY1, main="Imputed")
+
+#write.csv(unscaled.theta.map,file = "unscaled-theta-map.csv")
 ```
 
 
