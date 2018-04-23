@@ -1,0 +1,18 @@
+Heat Wave Definition
+
+World Meteorological Organization is specific in its definition by stating that a heat wave is when the daily maximum temperature for more than five consecutive days exceeds the average maximum temperature by 9 degrees
+
+For each dataset, a set of daily maximum temperature index (Tmax) is derived by averaging the daily surface maximum air temperature over plain areas (altitude < 500 m) in Taiwan. A hot day threshold is then determined upon the respective 95th percentile of this set of Tmax. A subset of hot days is found as the corresponding Tmax exceeding their respective 95th percentile for the period. From across each subset of hot days, any hot spell lasting at least three consecutive days is defined as a heat wave event.
+
+
+@article{1748-9326-12-7-074017,
+  author={M-T Kueh and C-Y Lin and Y-J Chuang and Y-F Sheng and Y-Y Chien},
+  title={Climate variability of heat waves and their associated diurnal temperature range variations in Taiwan},
+  journal={Environmental Research Letters},
+  volume={12},
+  number={7},
+  pages={074017},
+  url={http://stacks.iop.org/1748-9326/12/i=7/a=074017},
+  year={2017}
+ }
+	
