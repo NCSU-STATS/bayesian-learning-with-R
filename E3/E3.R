@@ -127,7 +127,7 @@ plot(X.sev[,9])
 
 
 
-###############################333
+###############################
 #Plot the prior, likelihood, and posterior on a grid
 k=1
 for(i in 1:41)
@@ -151,21 +151,113 @@ for(i in 1:41)
   legend("topright",c("Likelihood","Prior","Posterior"),lwd=c(1,1,2),lty=c(2,1,1),inset=0.05)
 }
 
+################################## Find MLE of fit to pois and negbinom, and fit glm's with time as predictor
+mle.nb.params <- matrix(nrow = 9,ncol = 2)
+mle.pois.params <- matrix(nrow = 9,ncol = 1)
 
-k=1
-hist(X.num[,k])
-library(fitdistrplus)    # fits distributions using maximum likelihood
-library(gamlss)          # defines pdf, cdf of ZIP
-# FIT DISTRIBUTION (mu = mean of poisson, sigma = P(X = 0)
-fit_zip = fitdist(X.num[,k], 'ZIP', start = list(mu = 2, sigma = 0.7))
-fit_zip2 <- fitdist(X.num[,k], 'nbinom', start = list(mu = 3, size = 0.1)) 
-# VISUALIZE TEST AND COMPUTE GOODNESS OF FIT    
-plot(fit_zip2)
-gofstat(fit_zip2, print.test = T)
+mle.nb.glm.params <- matrix(nrow = 9,ncol = 8)
+mle.pois.glm.params <- matrix(nrow = 9,ncol = 8)
+for(k in 1:9)
+{
+  hist(X.num[,k])
+  library(fitdistrplus)   
+  library(gamlss)          
+  fit_nb <- fitdist(X.num[,k], 'nbinom', start = list(mu = 3, size = 0.1)) 
+  mle.nb.params[k,1] <- fit_nb$estimate[1]
+  mle.nb.params[k,2] <- fit_nb$estimate[2]
+  
+  fit_pois <- fitdist(X.num[,k], 'pois',method = 'mle')
+  mle.pois.params[k,1] <- fit_pois$estimate[1]
+  #plot(fit_nb)
+  #gofstat(fi_nb)
+  
+  df <- data.frame(t=seq(1:41),Y=X.num[,k])
+  model.pois <- glm( Y~ t, family=poisson, df)
+  sp <- summary.glm(model.pois)
+  
+  model.nb <- glm.nb(Y~t,data=df)
+  snb <- summary.glm(model.nb)
+  
+  mle.nb.glm.params[k,1:4] <- snb$coefficients[1,]
+  mle.nb.glm.params[k,5:8] <- snb$coefficients[2,]
+  
+  mle.pois.glm.params[k,1:4] <- sp$coefficients[1,]
+  mle.pois.glm.params[k,5:8] <- sp$coefficients[2,]
+}
 
-df <- data.frame(t=seq(1:41),Y=X.num[,k])
-model.pois <- glm( Y~ t, family=poisson, df)
-summary(model.pois)
-sumary(model.pois)
+colnames(mle.nb.glm.params) <- c(colnames(snb$coefficients),colnames(snb$coefficients))
+
+colnames(mle.pois.glm.params) <- c(colnames(sp$coefficients),colnames(sp$coefficients))
+
+
+
+###################################### Fit JAGS GLM Models for Negative Binomial
+library(rjags)
+library(coda)
+model_code = '
+model
+{
+  ## Likelihood
+    for(i in 1:N){
+  Y[i] ~ dnegbin(p[i],r)
+  p[i] <- r/(r+lambda[i]) 
+  log(lambda[i]) <- mu[i]
+  mu[i] <- intercept + beta*t[i]
+  } 
+  ## Priors
+  beta ~ dnorm(mu.beta,tau.beta)
+  intercept ~ dnorm(mu.intercept,tau.intercept)
+  r ~ dunif(0,50)
+}
+'
+for(k in 1:5)
+{
+  # Set up the data
+  model_data = list(N = 41, t=seq(1:41),Y=X.num[,k],mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
+  # Choose the parameters to watch
+  model_parameters =  c("r","beta", "intercept")
+  n.chains =2;nSamples = 10000
+  model <- jags.model(textConnection(model_code),data = model_data,n.chains = n.chains)#Compile Model Graph
+  update(model, nSamples, progress.bar="none"); # Burnin
+  out.coda  <- coda.samples(model, variable.names=model_parameters,n.iter=2*nSamples) 
+  plot(out.coda)
+  #assess the posteriors??? stationarity, by looking at the Heidelberg-Welch convergence diagnostic:
+  heidel.diag(out.coda) 
+  # check that our chain???s length is satisfactory.
+  raftery.diag(out.coda)  
+  
+  geweke.diag(out.coda)
+  
+  if(n.chains > 1)
+  {
+    gelman.srf <-gelman.diag(out.coda)
+    plot(gelman.srf$psrf,main = "Gelman Diagnostic")
+  }
+  
+  chains.ess <- lapply(out.coda,effectiveSize)
+  first.chain.ess <- chains.ess[1]
+  plot(unlist(first.chain.ess), main="Effective Sample Size")
+} 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
