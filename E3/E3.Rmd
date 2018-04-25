@@ -8,17 +8,72 @@ fontsize: 10pt
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#HeatWave W  = 3 consecutive days above 95th quantile for that year
+#HeatWave W  = 3 consecutive days above 95th quantile of daily 
 
 ```{r}
 rm(list = ls())
-setwd("d:/brucebcampbell-git/bayesian-learning-with-R/E3")
+setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R/E3")
 load("heatwaves.RData")
 n.chains =2;
 nSamples = 10000
 
-plot(y[1,1:365,1])
-abline(h = quantile(y[1,1:365,1],.95))
+#Daily - 95th quantile 
+DQ <- matrix(nrow = 365,ncol = 9)
+for(j in 1:365)
+{
+  for(k in 1:9)
+  {
+    data <- y[1:41,j,k]
+    data <- na.exclude(data)
+    DQ[j,k] <- quantile(data,.95)
+  }
+}
+plot(y[1,1:365,1]); lines(DQ[,1],col='red')
+
+
+
+AboveDQ.Idx <- y
+for(i in 1:41)
+{
+  for(k in 1:9)
+  {
+    for(j in 1:365)
+    {
+      t <- y[i,j,k]
+      A <- DQ[j,k]
+      isHot <- t >=A
+      AboveDQ.Idx[i,j,k] <- isHot
+    }
+  }
+}
+
+X.num <- matrix(nrow =41, ncol = 9 )
+X.sev <- matrix(nrow =41, ncol = 9 )
+
+for(i in 1:41)
+{
+  for(k in 1:9)
+  {
+    data <- AboveDQ.Idx[i,1:365,k]
+    data <- na.exclude(data)
+    run_lengths <- rle(as.vector(data))
+    df_rl <- data.frame(l = run_lengths$lengths,v = run_lengths$values)
+    hot_groups <- df_rl[df_rl$v==TRUE,]
+    heat_waves <- hot_groups[hot_groups$l>5,]
+    num_hw <- nrow(heat_waves)
+    sev_hw <- sum(heat_waves$l)
+    
+    X.num[i,k] <- num_hw
+    X.sev[i,k] <- sev_hw
+  }
+  
+}
+
+
+
+
+
+
 
 ###################################################################
 #  HW  = 3 consecutive days above 95th quantile for that year
