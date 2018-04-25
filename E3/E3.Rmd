@@ -1,6 +1,7 @@
 ---
 title: "E3"
 output: pdf_document
+fontsize: 10pt
 ---
 
 ```{r setup, include=FALSE}
@@ -11,8 +12,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 rm(list = ls())
-setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R/E3")
+setwd("d:/brucebcampbell-git/bayesian-learning-with-R/E3")
 load("heatwaves.RData")
+n.chains =2;
+nSamples = 10000
 
 plot(y[1,1:365,1])
 abline(h = quantile(y[1,1:365,1],.95))
@@ -44,21 +47,6 @@ for(i in 1:41)
     
 }
 
-image(X.num)
-image(X.sev)
-f<- rowSums(X.num)
-plot(f)
-f<- rowSums(X.sev)
-plot(f)
-plot(X.sev[,1])
-plot(X.sev[,2])
-plot(X.sev[,3])
-plot(X.sev[,4])
-plot(X.sev[,5])
-plot(X.sev[,6])
-plot(X.sev[,7])
-plot(X.sev[,8])
-plot(X.sev[,9])
 ```
 
 
@@ -123,50 +111,34 @@ for(i in 1:41)
   }
   
 }
-
-image(X.num)
-image(X.sev)
-f<- rowSums(X.num)
-plot(f)
-f<- rowSums(X.sev)
-plot(f)
-plot(X.sev[,1])
-plot(X.sev[,2])
-plot(X.sev[,3])
-plot(X.sev[,4])
-plot(X.sev[,5])
-plot(X.sev[,6])
-plot(X.sev[,7])
-plot(X.sev[,8])
-plot(X.sev[,9])
 ```
 
-#Plot the prior, likelihood, and posterior on a grid
 
 ```{r}
+#Plot the prior, likelihood, and posterior on a grid
 ###############################
 #Plot the prior, likelihood, and posterior on a grid
-k=1
-for(i in 1:41)
-{
-  N      <- 1
-  Y      <- X.num[i,k]
-  a      <- 1
-  b      <- 0.5
-  grid   <- seq(0.01,10,.01)
-  like   <- dpois(Y,N*grid)
-  like   <- like/sum(like) #standardize
-  prior  <- dgamma(grid,a,b)
-  prior  <- prior/sum(prior) #standardize
-  post   <- like*prior
-  post   <- post/sum(post)
-  ps.mean <-sum(post*grid)
-  plot(grid,like,type="l",lty=2,
-       xlab="lambda",ylab="Density",main=paste(Y," post mean = ",ps.mean,sep = ' '), ylim=c(0,.1))
-   lines(grid,prior)
-  lines(grid,post,lwd=2)
-  legend("topright",c("Likelihood","Prior","Posterior"),lwd=c(1,1,2),lty=c(2,1,1),inset=0.05)
-}
+# k=1
+# for(i in 1:41)
+# {
+#   N      <- 1
+#   Y      <- X.num[i,k]
+#   a      <- 1
+#   b      <- 0.5
+#   grid   <- seq(0.01,10,.01)
+#   like   <- dpois(Y,N*grid)
+#   like   <- like/sum(like) #standardize
+#   prior  <- dgamma(grid,a,b)
+#   prior  <- prior/sum(prior) #standardize
+#   post   <- like*prior
+#   post   <- post/sum(post)
+#   ps.mean <-sum(post*grid)
+#   plot(grid,like,type="l",lty=2,
+#        xlab="lambda",ylab="Density",main=paste(Y," post mean = ",ps.mean,sep = ' '), ylim=c(0,.1))
+#    lines(grid,prior)
+#   lines(grid,post,lwd=2)
+#   legend("topright",c("Likelihood","Prior","Posterior"),lwd=c(1,1,2),lty=c(2,1,1),inset=0.05)
+# }
 ```
 
 #Find MLE of fit to pois and negbinom, and fit glm's with time as predictor
@@ -254,8 +226,7 @@ for(k in 1:9)
   model_data = list(N = 41, t=seq(1:41),Y=X.num[,k],mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
   # Choose the parameters to watch
   model_parameters =  c("beta", "intercept","D")
-  n.chains =2;nSamples = 10000
-  model <- jags.model(textConnection(model_code),data = model_data,n.chains = n.chains)#Compile Model Graph
+   model <- jags.model(textConnection(model_code),data = model_data,n.chains = n.chains)#Compile Model Graph
   update(model, nSamples, progress.bar="none"); # Burnin
   out.coda  <- coda.samples(model, variable.names=model_parameters,n.iter=2*nSamples) 
   plot(out.coda)
@@ -266,11 +237,14 @@ for(k in 1:9)
   
   geweke.diag(out.coda)
   
-  if(n.chains > 1)
-  {
-    gelman.srf <-gelman.diag(out.coda)
-    plot(gelman.srf$psrf,main = "Gelman Diagnostic")
-  }
+  # if(n.chains > 1)
+  # {
+  #    g<-matrix(NA, nrow=2, ncol=2)
+  #    for (v in 1:2) {
+  #      g[v,] <- gelman.diag(out.coda[,v])$psrf
+  #      plot(g[v,],main = "Gelman Diagnostic")
+  #    }
+  # }
   
   chains.ess <- lapply(out.coda,effectiveSize)
   first.chain.ess <- chains.ess[1]
@@ -375,7 +349,6 @@ for(k in 1:9)
   model_data = list(N = 41, t=seq(1:41),Y=X.num[,k],mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
   # Choose the parameters to watch
   model_parameters =  c("r","beta", "intercept","D")
-  n.chains =2;nSamples = 10000
   model <- jags.model(textConnection(model_code),data = model_data,n.chains = n.chains)#Compile Model Graph
   update(model, nSamples, progress.bar="none"); # Burnin
   out.coda  <- coda.samples(model, variable.names=model_parameters,n.iter=2*nSamples) 
@@ -387,11 +360,11 @@ for(k in 1:9)
   
   geweke.diag(out.coda)
   
-  if(n.chains > 1)
-  {
-    gelman.srf <-gelman.diag(out.coda)
-    plot(gelman.srf$psrf,main = "Gelman Diagnostic")
-  }
+  # if(n.chains > 1)
+  # {
+  #   gelman.srf <-gelman.diag(out.coda)
+  #   plot(gelman.srf$psrf,main = "Gelman Diagnostic")
+  # }
   
   chains.ess <- lapply(out.coda,effectiveSize)
   first.chain.ess <- chains.ess[1]
@@ -457,7 +430,6 @@ model
   model_data = list(N = 41, t=seq(1:41),Y=X.num,mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
   # Choose the parameters to watch
   model_parameters =  c("r","beta", "intercept", "alpha")
-  n.chains =2;nSamples = 10000
   model <- jags.model(textConnection(model_code),data = model_data,n.chains = n.chains)#Compile Model Graph
   update(model, nSamples, progress.bar="none"); # Burnin
   out.coda  <- coda.samples(model, variable.names=model_parameters,n.iter=2*nSamples)
@@ -469,11 +441,11 @@ model
 
   geweke.diag(out.coda)
 
-  if(n.chains > 1)
-  {
-    gelman.srf <-gelman.diag(out.coda)
-    plot(gelman.srf$psrf,main = "Gelman Diagnostic")
-  }
+  # if(n.chains > 1)
+  # {
+  #   gelman.srf <-gelman.diag(out.coda)
+  #   plot(gelman.srf$psrf,main = "Gelman Diagnostic")
+  # }
 
   chains.ess <- lapply(out.coda,effectiveSize)
   first.chain.ess <- chains.ess[1]
@@ -514,7 +486,6 @@ model
   model_data = list(N = 41, t=seq(1:41),Y=X.num,mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
   # Choose the parameters to watch
   model_parameters =  c("r","beta", "intercept", "alpha")
-  n.chains =2;nSamples = 10000
   model <- jags.model(textConnection(model_code),data = model_data,n.chains = n.chains)#Compile Model Graph
   update(model, nSamples, progress.bar="none"); # Burnin
   out.coda  <- coda.samples(model, variable.names=model_parameters,n.iter=2*nSamples)
@@ -526,25 +497,16 @@ model
 
   geweke.diag(out.coda)
 
-  if(n.chains > 1)
-  {
-    gelman.srf <-gelman.diag(out.coda)
-    plot(gelman.srf$psrf,main = "Gelman Diagnostic")
-  }
+  # if(n.chains > 1)
+  # {
+  #   gelman.srf <-gelman.diag(out.coda)
+  #   plot(gelman.srf$psrf,main = "Gelman Diagnostic")
+  # }
 
   chains.ess <- lapply(out.coda,effectiveSize)
   first.chain.ess <- chains.ess[1]
   plot(unlist(first.chain.ess), main="Effective Sample Size")
 ```
-
-
-
-
-
-
-
-
-
 
 # Diagnostics
 
@@ -552,14 +514,5 @@ model
 
 A uniquely Bayesian diagnostic is the posterior predictive check.   This leads to the Bayesian p-value
 We check if the p-values are close to zero or one so there is no evidence of poor fit.
-The plug-in approach would fix the parameters  at the
-posterior mean ^ and then predict Ynew  f (y|theta) This suppresses uncertainty in theta
-I This
-
-###Posterior predicitive checks
-```{r}
-
-
-
-
-```
+The plug-in approach would fix the parameters theta at the
+posterior mean ^theta and then predict Ynew | f (y|theta) This suppresses uncertainty in theta
