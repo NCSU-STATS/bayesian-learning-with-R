@@ -247,7 +247,7 @@ model
   D[3] <- max(Y2[])-min(Y2[])
 }
 '
-for(k in 1:5)
+for(k in 1:9)
 {
   print(paste("JAGS GLM Models for Poisson ", k,sep = " "))
   # Set up the data
@@ -337,6 +337,7 @@ for(k in 1:5)
 #     m ~ dgamma(0.01,0.01)
 #     v <- r*(1-p)/(p*p)
 # }
+
 library(rjags)
 library(coda)
 model_code = '
@@ -367,13 +368,13 @@ model
   D[3] <- max(Y2[])-min(Y2[])
 }
 '
-for(k in 1:5)
+for(k in 1:9)
 {
   print(paste("JAGS GLM Models for Negative Binomial ", k,sep = " "))
   # Set up the data
   model_data = list(N = 41, t=seq(1:41),Y=X.num[,k],mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
   # Choose the parameters to watch
-  model_parameters =  c("r","beta", "intercept")
+  model_parameters =  c("r","beta", "intercept","D")
   n.chains =2;nSamples = 10000
   model <- jags.model(textConnection(model_code),data = model_data,n.chains = n.chains)#Compile Model Graph
   update(model, nSamples, progress.bar="none"); # Burnin
