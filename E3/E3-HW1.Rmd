@@ -37,7 +37,7 @@ load("HWD2.RData")
 
 # Fit JAGS Poisson Random Effects
 
-```{r , results="asis"}
+```{r }
 ####################################### Fit JAGS Poisson 
 model_pois = '
 model
@@ -74,17 +74,27 @@ model
     Dm[j] <- mean(Y2[,j])
     Dsd[j] <- sd(Y2[,j])
   }
+
+  #Prediction
+  for(i in 1:N){
+    for(j in 1:9){
+      Yp[i,j] ~ dpois(lambdap[i,j])
+      log(lambdap[i,j]) <- mup[i,j]
+      mup[i,j] <- alpha[j] + beta[j]*t[i] 
+    }
+  }
 }
 '
 
   # Set up the data
   model_data = list(N = 41, t=seq(1:41),Y=X.num,mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
   # Choose the parameters to watch
-  model_parameters =  c("beta", "alpha","Dm", "Dsd")
+  model_parameters =  c("beta", "alpha","Dm", "Dsd", "Yp")
   model_pois <- jags.model(textConnection(model_pois),data = model_data,n.chains = n.chains)#Compile Model Graph
   update(model_pois, nSamples, progress.bar="none"); # Burnin
   out.coda  <- coda.samples(model_pois, variable.names=model_parameters,n.iter=2*nSamples)
   #plot(out.coda)
+  so <-summary(out.coda)
   #assess the posteriors??? stationarity, by looking at the Heidelberg-Welch convergence diagnostic:
   heidel.diag(out.coda)
   # check that our chain???s length is satisfactory.
@@ -120,11 +130,99 @@ model
   }
   colnames(pval.m)<-c("pval.mean","pval.sd")
   pander(data.frame(pval.m), caption = "Baeysian p-values Poisson GLM")
+  
+  
+  ####Predictions Median
+  predictedMedian <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:length(rownames(so$quantiles)) )
+  {
+    rn.so <- rownames(so$quantiles)[i]
+    
+    if(grepl("Yp",rn.so)  )
+    {
+      print(rn.so)
+      idx <-gsub('Yp','',rn.so)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      predictedMedian[idi,idj] <- so$quantiles[i,][3]# 50% Quantiles for predicted
+      diff.pred.train[idi,idj] <-  predictedMedian[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  
+  train.mse <- sum(diff.pred.train^2)/(41*9)
+  pander (train.mse, caption="training MSE - via posteriaor medians")
+  
+  ####Predictions Mode - don't need fancy mode fn since it's count data
+  
+  Mode <- function(x) {
+    ux <- unique(x)
+    ux[which.max(tabulate(match(x, ux)))]
+    }
+  
+  chain <- out.coda[[1]]
+  predictedMode <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train.mode <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:ncol(chain) )
+  {
+    colname <- colnames(chain)[i]
+    if(grepl("Yp",colname)  )
+    {
+      idx <-gsub('Yp','',colname)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      samples <- chain[,i]
+      predictedMode[idi,idj] <- as.numeric(Mode(samples)) 
+      diff.pred.train.mode[idi,idj] <-  predictedMode[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  
+  train.mse <- sum(diff.pred.train.mode^2)/(41*9)
+  pander (train.mse, caption="training MSE - via posterior modes")
+  
+   ####Predictions Mean
+  chain <- out.coda[[1]]
+  predictedMean <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train.mean <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:ncol(chain) )
+  {
+    colname <- colnames(chain)[i]
+    if(grepl("Yp",colname)  )
+    {
+      idx <-gsub('Yp','',colname)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      samples <- chain[,i]
+      predictedMean[idi,idj] <- as.numeric(mean(samples)) 
+      diff.pred.train.mean[idi,idj] <-  predictedMean[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  train.mse <- sum(diff.pred.train.mean^2)/(41*9)
+  pander (train.mse, caption="training MSE - via posteriaor means")
+
 ```
 
 # Fit JAGS Negative Binomial Random Effects
 
-```{r ,results="asis"}
+```{r}
 ####################################### Fit JAGS Negative Binomial Random Effects
 model_nb = '
 model
@@ -167,12 +265,22 @@ model
     Dm[j] <- mean(Y2[,j])
     Dsd[j] <- sd(Y2[,j])
   }
+
+  #Prediction
+  for(i in 1:N){
+    for(j in 1:9){
+      Yp[i,j] ~ dnegbin(pp[i,j],r[j])
+      pp[i,j] <- r[j]/(r[j]+lambdap[i,j]) 
+      log(lambdap[i,j]) <- mup[i,j]
+      mup[i,j] <- alpha[j] + beta[j]*t[i]
+    }
+  }
 }
 '
   # Set up the data
   model_data = list(N = 41, t=seq(1:41),Y=X.num,mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
   # Choose the parameters to watch
-  model_parameters =  c("r","beta", "alpha","Dm","Dsd")# model_parameters =  c("r")
+  model_parameters =  c("r","beta", "alpha","Dm","Dsd","Yp")# model_parameters =  c("r")
   model_nb <- jags.model(textConnection(model_nb),data = model_data,n.chains = n.chains)#Compile Model Graph
   update(model_nb, nSamples, progress.bar="none"); # Burnin
   out.coda  <- coda.samples(model_nb, variable.names=model_parameters,n.iter=2*nSamples)
@@ -212,6 +320,92 @@ model
   }
   colnames(pval.m)<-c("pval.mean","pval.sd")
   pander(data.frame(pval.m), caption = "Baeysian p-values Poisson GLM")
+
+    ####Predictions Median
+  predictedMedian <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:length(rownames(so$quantiles)) )
+  {
+    rn.so <- rownames(so$quantiles)[i]
+    
+    if(grepl("Yp",rn.so)  )
+    {
+      print(rn.so)
+      idx <-gsub('Yp','',rn.so)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      predictedMedian[idi,idj] <- so$quantiles[i,][3]# 50% Quantiles for predicted
+      diff.pred.train[idi,idj] <-  predictedMedian[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  
+  train.mse <- sum(diff.pred.train^2)/(41*9)
+  pander (train.mse, caption="training MSE - via posteriaor medians")
+  
+  ####Predictions Mode - don't need fancy mode fn since it's count data
+  
+  Mode <- function(x) {
+    ux <- unique(x)
+    ux[which.max(tabulate(match(x, ux)))]
+    }
+  
+  chain <- out.coda[[1]]
+  predictedMode <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train.mode <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:ncol(chain) )
+  {
+    colname <- colnames(chain)[i]
+    if(grepl("Yp",colname)  )
+    {
+      idx <-gsub('Yp','',colname)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      samples <- chain[,i]
+      predictedMode[idi,idj] <- as.numeric(Mode(samples)) 
+      diff.pred.train.mode[idi,idj] <-  predictedMode[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  
+  train.mse <- sum(diff.pred.train.mode^2)/(41*9)
+  pander (train.mse, caption="training MSE - via posterior modes")
+  
+   ####Predictions Mean
+  chain <- out.coda[[1]]
+  predictedMean <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train.mean <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:ncol(chain) )
+  {
+    colname <- colnames(chain)[i]
+    if(grepl("Yp",colname)  )
+    {
+      idx <-gsub('Yp','',colname)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      samples <- chain[,i]
+      predictedMean[idi,idj] <- as.numeric(mean(samples)) 
+      diff.pred.train.mean[idi,idj] <-  predictedMean[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  train.mse <- sum(diff.pred.train.mean^2)/(41*9)
+  pander (train.mse, caption="training MSE - via posteriaor means")
 
   
 ```
