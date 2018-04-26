@@ -4,28 +4,42 @@ output: pdf_document
 fontsize: 10pt
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE,echo=FALSE}
+rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dev = 'pdf')
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(tidy=TRUE)
+knitr::opts_chunk$set(prompt=FALSE)
+knitr::opts_chunk$set(fig.height=5)
+knitr::opts_chunk$set(fig.width=6)
+knitr::opts_chunk$set(warning=FALSE)
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_knit$set(root.dir = ".")
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
+library(latex2exp)   
+library(pander)
+library(ggplot2)
+library(GGally)
 ```
 
-
 ```{r}
-
 rm(list = ls())
+library(rjags)
+library(coda)
+library(pander)
 setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R/E3")
 load("heatwaves.RData")
 n.chains =2;
-nSamples = 10000
+nSamples = 20000
 load("HWD2.RData")
 ```
 
 # Fit JAGS Poisson Random Effects
 
-```{r}
-####################################### Fit JAGS Poisson Random Effects
-library(rjags)
-library(coda)
-model_code_nre = '
+```{r , results="asis"}
+####################################### Fit JAGS Poisson 
+model_pois = '
 model
 {
     ## Likelihood
@@ -33,17 +47,15 @@ model
       for(j in 1:9){
         Y[i,j] ~ dpois(lambda[i,j])
         log(lambda[i,j]) <- mu[i,j]
-        mu[i,j] <- intercept[j] + beta[j]*t[i]
+        mu[i,j] <- alpha[j] + beta[j]*t[i] 
       }
     }
 
   ## Priors
-  # Random effects
   for(i in 1:9){
-    alpha[i] ~ dnorm(0,taus)
+    alpha[i] ~ dnorm(0,taus[i])
+    taus[i] ~ dgamma(0.1,0.1)
   }
-  
-  taus ~ dgamma(0.1,0.1)
   
   # Slopes
   for(i in 1:9){
@@ -51,44 +63,28 @@ model
     taus.beta[i] ~ dgamma(0.1,0.1)
   }
 
-  # Intercepts 
-  for(i in 1:9){    
-    intercept[i] ~dnorm(mu.beta,taus.intercept[i])
-    taus.intercept[i] ~ dgamma(0.1,0.1)
-  }
-}
-'
-
-model_code_re = '
-model
-{
-    ## Likelihood
-    for(i in 1:N){
-      for(j in 1:9){
-        Y[i,j] ~ dpois(lambda[i,j])
-        log(lambda[i,j]) <- mu[i,j]
-        mu[i,j] <- intercept + beta*t[i] + alpha[j]
-      }
+  ## Posterior Predictive Checks
+  for(i in 1:N){
+    for(j in 1:9){
+        Y2[i,j] ~ dpois(lambda[i,j])
     }
-
-  ## Priors
-  # Random effects
-  for(i in 1:9){
-    alpha[i] ~ dnorm(0,taus)
   }
-  taus ~ dgamma(0.1,0.1)
-  beta ~ dnorm(mu.beta,tau.beta)
-  intercept ~ dnorm(mu.intercept,tau.intercept)
+  
+  for(j in 1:9){
+    Dm[j] <- mean(Y2[,j])
+    Dsd[j] <- sd(Y2[,j])
+  }
 }
 '
+
   # Set up the data
   model_data = list(N = 41, t=seq(1:41),Y=X.num,mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
   # Choose the parameters to watch
-  model_parameters =  c("beta", "intercept")
-  model <- jags.model(textConnection(model_code_nre),data = model_data,n.chains = n.chains)#Compile Model Graph
-  update(model, nSamples, progress.bar="none"); # Burnin
-  out.coda  <- coda.samples(model, variable.names=model_parameters,n.iter=2*nSamples)
-  plot(out.coda)
+  model_parameters =  c("beta", "alpha","Dm", "Dsd")
+  model_pois <- jags.model(textConnection(model_pois),data = model_data,n.chains = n.chains)#Compile Model Graph
+  update(model_pois, nSamples, progress.bar="none"); # Burnin
+  out.coda  <- coda.samples(model_pois, variable.names=model_parameters,n.iter=2*nSamples)
+  #plot(out.coda)
   #assess the posteriors??? stationarity, by looking at the Heidelberg-Welch convergence diagnostic:
   heidel.diag(out.coda)
   # check that our chain???s length is satisfactory.
@@ -96,55 +92,91 @@ model
 
   geweke.diag(out.coda)
 
-  # if(n.chains > 1)
-  # {
-  #   gelman.srf <-gelman.diag(out.coda)
-  #   plot(gelman.srf$psrf,main = "Gelman Diagnostic")
-  # }
+  if(n.chains > 1)
+  {
+   gelman.srf <-gelman.diag(out.coda)
+   plot(gelman.srf$psrf,main = "Gelman Diagnostic")
+  }
 
   chains.ess <- lapply(out.coda,effectiveSize)
   first.chain.ess <- chains.ess[1]
   plot(unlist(first.chain.ess), main="Effective Sample Size")
+  
+  pval.m <- matrix(nrow = 9,ncol = 2)
+  for(k in 1:9){
+    # Compute the test stats for the data
+    D0   <- c(   mean(X.num[,k]),   sd(X.num[,k]))
+    Dnames <- c("mean Y", "sd Y")
+    # Compute the test stats for the models
+    chain <- out.coda[[1]]
+    D1   <- cbind(chain[,paste("Dm[",k,"]",sep='')],chain[,paste("Dsd[",k,"]",sep='')])
+    pval1 <- rep(0,2)
+    names(pval1)<-Dnames
+
+    for(j in 1:2){
+    pval1[j] <- mean(D1[,j]>D0[j])
+    }
+    pval.m[k,] <- pval1
+  }
+  colnames(pval.m)<-c("pval.mean","pval.sd")
+  pander(data.frame(pval.m), caption = "Baeysian p-values Poisson GLM")
 ```
 
 # Fit JAGS Negative Binomial Random Effects
 
-```{r}
+```{r ,results="asis"}
 ####################################### Fit JAGS Negative Binomial Random Effects
-library(rjags)
-library(coda)
-model_code = '
+model_nb = '
 model
 {
     ## Likelihood
     for(i in 1:N){
       for(j in 1:9){
-        Y[i,j] ~ dnegbin(p[i,j],r)
-        p[i,j] <- r/(r+lambda[i,j]) 
+        Y[i,j] ~ dnegbin(p[i,j],r[j])
+        p[i,j] <- r[j]/(r[j]+lambda[i,j]) 
         log(lambda[i,j]) <- mu[i,j]
-        mu[i,j] <- intercept + beta*t[i] + alpha[j]
+        mu[i,j] <- alpha[j] + beta[j]*t[i]
       }
     }
 
   ## Priors
-  # Random effects
   for(i in 1:9){
-    alpha[i] ~ dnorm(0,taus)
+    alpha[i] ~ dnorm(0,taus[i])
+    taus[i] ~ dgamma(0.1,0.1)
   }
-  taus ~ dgamma(0.1,0.1)
-  r ~ dunif(0,20)
-  beta ~ dnorm(mu.beta,tau.beta)
-  intercept ~ dnorm(mu.intercept,tau.intercept)
+  
+  # Slopes
+  for(i in 1:9){
+    beta[i] ~ dnorm(mu.beta,taus.beta[i])
+    taus.beta[i] ~ dgamma(0.1,0.1)
+  }
+
+  # r
+  for(i in 1:9){
+    r[i] ~ dunif(0,10)
+  }
+
+  ## Posterior Predictive Checks
+  for(i in 1:N){
+    for(j in 1:9){
+        Y2[i,j] ~ dnegbin(p[i,j],r[j])
+    }
+  }
+  
+  for(j in 1:9){
+    Dm[j] <- mean(Y2[,j])
+    Dsd[j] <- sd(Y2[,j])
+  }
 }
 '
   # Set up the data
   model_data = list(N = 41, t=seq(1:41),Y=X.num,mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
   # Choose the parameters to watch
-  model_parameters =  c("r","beta", "intercept", "alpha")
-  model <- jags.model(textConnection(model_code),data = model_data,n.chains = n.chains)#Compile Model Graph
-  update(model, nSamples, progress.bar="none"); # Burnin
-  out.coda  <- coda.samples(model, variable.names=model_parameters,n.iter=2*nSamples)
-  plot(out.coda)
+  model_parameters =  c("r","beta", "alpha","Dm","Dsd")# model_parameters =  c("r")
+  model_nb <- jags.model(textConnection(model_nb),data = model_data,n.chains = n.chains)#Compile Model Graph
+  update(model_nb, nSamples, progress.bar="none"); # Burnin
+  out.coda  <- coda.samples(model_nb, variable.names=model_parameters,n.iter=2*nSamples)
+  #plot(out.coda)
   #assess the posteriors??? stationarity, by looking at the Heidelberg-Welch convergence diagnostic:
   heidel.diag(out.coda)
   # check that our chain???s length is satisfactory.
@@ -152,22 +184,44 @@ model
 
   geweke.diag(out.coda)
 
-  # if(n.chains > 1)
-  # {
-  #   gelman.srf <-gelman.diag(out.coda)
-  #   plot(gelman.srf$psrf,main = "Gelman Diagnostic")
-  # }
+  if(n.chains > 1)
+  {
+   gelman.srf <-gelman.diag(out.coda)
+   plot(gelman.srf$psrf,main = "Gelman Diagnostic")
+  }
 
   chains.ess <- lapply(out.coda,effectiveSize)
   first.chain.ess <- chains.ess[1]
   plot(unlist(first.chain.ess), main="Effective Sample Size")
+  
+ pval.m <- matrix(nrow = 9,ncol = 2)
+  for(k in 1:9){
+    # Compute the test stats for the data
+    D0   <- c(   mean(X.num[,k]),   sd(X.num[,k]))
+    Dnames <- c("mean Y", "sd Y")
+    # Compute the test stats for the models
+    chain <- out.coda[[1]]
+    D1   <- cbind(chain[,paste("Dm[",k,"]",sep='')],chain[,paste("Dsd[",k,"]",sep='')])
+    pval1 <- rep(0,2)
+    names(pval1)<-Dnames
+
+    for(j in 1:2){
+    pval1[j] <- mean(D1[,j]>D0[j])
+    }
+    pval.m[k,] <- pval1
+  }
+  colnames(pval.m)<-c("pval.mean","pval.sd")
+  pander(data.frame(pval.m), caption = "Baeysian p-values Poisson GLM")
+
+  
 ```
 
-# Diagnostics
+# DIC Calculation
 
-### p-values
+```{r}
+dic_pois  <- dic.samples(model_pois,variable.names=c("beta", "alpha"), n.iter=nSamples, progress.bar="none")
+dic_pois
+dic_nb  <- dic.samples(model_nb,variable.names=c("beta", "alpha"), n.iter=nSamples, progress.bar="none")
+dic_nb
+```
 
-A uniquely Bayesian diagnostic is the posterior predictive check.   This leads to the Bayesian p-value
-We check if the p-values are close to zero or one so there is no evidence of poor fit.
-The plug-in approach would fix the parameters theta at the
-posterior mean ^theta and then predict Ynew | f (y|theta) This suppresses uncertainty in theta

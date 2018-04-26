@@ -1,6 +1,6 @@
 Heat Wave Definition
 
-World Meteorological Organization is specific in its definition by stating that a heat wave is when the daily maximum temperature for more than five consecutive days exceeds the average maximum temperature by 9 degrees
+World Meteorological Organization is specific in its definition by stating that a heat wave is when the daily temperature for more than five consecutive days exceeds the average temperature by 9 degrees F.
 
 For each dataset, a set of daily maximum temperature index (Tmax) is derived by averaging the daily surface maximum air temperature over plain areas (altitude < 500 m) in Taiwan. A hot day threshold is then determined upon the respective 95th percentile of this set of Tmax. A subset of hot days is found as the corresponding Tmax exceeding their respective 95th percentile for the period. From across each subset of hot days, any hot spell lasting at least three consecutive days is defined as a heat wave event.
 
@@ -16,3 +16,42 @@ For each dataset, a set of daily maximum temperature index (Tmax) is derived by 
   year={2017}
  }
 	
+Heat waves, for example, have been defined as “temperatures above the 90th percentile, persisting for three or more days” for a heat wave study for southern Australia (Pezza et al. 2012). 
+
+What makes a good heatwave index?
+• Relative threshold (based on climate of the region)
+• Consecutive days (although individual hot days can be important too)
+• Be based (at least) on temperature
+• Consider all aspects of heat waves (intensity, frequency, duration
+
+
+
+JAGS
+
+http://doingbayesiandataanalysis.blogspot.com/2012/04/negative-binomial-reparameterization.html
+
+*that direct estimation of the p and r parameters in a negative binomial distribution could involve bad autocorrelation in the MCMC chains, and I suggested that there must be some standard reparameterization to solve the problem, and asked for a pointer. Dr. John Davey of the University of Edinburgh was good enough to point the way. The solution is indeed straight forward: In the direct estimation, the p and r parameters are given priors, while the mean m (and variance v) is derived from p and r. In the reparameterization, the m and r parameters are given priors, while the p (and variance v) is derived from m and r. Autocorrelation in the chains is greatly reduced. Here is an example.*
+
+The model specifications:
+
+Parameterized by p and r:
+model {
+    for( i in 1 : N ) {
+      y[i] ~ dnegbin( p , r )
+    }
+    p ~ dbeta(1.001,1.001)
+    r ~ dgamma(0.01,0.01)
+    m <- r*(1-p)/p
+    v <- r*(1-p)/(p*p)
+}
+
+Parameterized by m and r:
+model {
+    for( i in 1 : N ) {
+      y[i] ~ dnegbin( p , r )
+    }
+    p <- r/(r+m)
+    r ~ dgamma(0.01,0.01)
+    m ~ dgamma(0.01,0.01)
+    v <- r*(1-p)/(p*p)
+}
