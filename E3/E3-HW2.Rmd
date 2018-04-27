@@ -1,0 +1,473 @@
+---
+title: "E3"
+output: pdf_document
+fontsize: 10pt
+---
+
+```{r setup, include=FALSE,echo=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dev = 'pdf')
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(tidy=TRUE)
+knitr::opts_chunk$set(prompt=FALSE)
+knitr::opts_chunk$set(fig.height=5)
+knitr::opts_chunk$set(fig.width=6)
+knitr::opts_chunk$set(warning=FALSE)
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_knit$set(root.dir = ".")
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
+library(latex2exp)   
+library(pander)
+library(ggplot2)
+library(GGally)
+```
+
+```{r}
+rm(list = ls())
+library(rjags)
+library(coda)
+library(pander)
+setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R/E3")
+load("heatwaves.RData")
+n.chains =2;
+nSamples = 5000
+load("HWD2.RData")
+
+df<- data.frame(X.num)
+colnames(df)<-city_names
+boxplot(df,las=2, main = "Heatwave yearly count by city")
+
+df<- data.frame(X.sev)
+colnames(df)<-city_names
+boxplot(df,las=2, main = "Heatwave severity by city")
+
+```
+
+# Fit JAGS Poisson Random Effects
+
+```{r }
+####################################### Fit JAGS Poisson 
+model_pois = '
+model
+{
+    ## Likelihood
+    for(i in 1:N){
+      for(j in 1:9){
+        Y[i,j] ~ dpois(lambda[i,j])
+        log(lambda[i,j]) <- mu[i,j]
+        mu[i,j] <- alpha[j] + beta[j]*t[i] 
+      }
+    }
+
+  ## Priors
+  for(i in 1:9){
+    alpha[i] ~ dnorm(0,taus[i])
+    taus[i] ~ dgamma(0.1,0.1)
+  }
+  
+  # Slopes
+  for(i in 1:9){
+    beta[i] ~ dnorm(mu.beta,taus.beta[i])
+    taus.beta[i] ~ dgamma(0.1,0.1)
+  }
+
+  ## Posterior Predictive Checks
+  for(i in 1:N){
+    for(j in 1:9){
+        Y2[i,j] ~ dpois(lambda[i,j])
+    }
+  }
+  
+  for(j in 1:9){
+    Dm[j] <- mean(Y2[,j])
+    Dsd[j] <- sd(Y2[,j])
+  }
+
+  #Prediction
+  for(i in 1:N){
+    for(j in 1:9){
+      Yp[i,j] ~ dpois(lambdap[i,j])
+      log(lambdap[i,j]) <- mup[i,j]
+      mup[i,j] <- alpha[j] + beta[j]*t[i] 
+    }
+  }
+}
+'
+
+  # Set up the data
+  model_data = list(N = 41, t=seq(1:41),Y=X.num,mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
+  # Choose the parameters to watch
+  model_parameters =  c("beta", "alpha","Dm", "Dsd", "Yp")
+  model_pois <- jags.model(textConnection(model_pois),data = model_data,n.chains = n.chains)#Compile Model Graph
+  update(model_pois, nSamples, progress.bar="none"); # Burnin
+  out.coda  <- coda.samples(model_pois, variable.names=model_parameters,n.iter=2*nSamples)
+  #plot(out.coda)
+  
+  coda::acfplot(out.coda[[1]][,'beta[1]'],100)
+  plot(out.coda[[1]][,'beta[1]'])
+  
+  slopes.hpd <- matrix(nrow = 9,ncol=2)
+  for(k in 1:9){
+    coef.name <- paste('beta[', k,']', sep='') 
+    inv <- HPDinterval(out.coda[[1]][,coef.name],.95)
+    slopes.hpd[k,]<-inv
+  }
+  colnames(slopes.hpd) <- c("lower","upper")
+  rownames(slopes.hpd) <-city_names
+  pander(data.frame(slopes.hpd), caption = "0.95 HPD Intervals for slopes")
+  
+  so <-summary(out.coda)
+  
+  #assess the posteriors stationarity, by looking at the Heidelberg-Welch convergence diagnostic:
+  hd <- heidel.diag(out.coda)
+  hdd <- hd[[1]]
+  hd.pass <- hdd[,2]
+  hd.fail <-sum(is.na(hd.pass))
+  pander(data.frame(fail.count = hd.fail), caption ="Fail count for Heidelberger and Welch diagnotic")
+  
+  # check that our chains length is satisfactory.
+  #raftery.diag(out.coda) - Indicated 3k so we ran for 40k 
+
+  pois.geweke <- geweke.diag(out.coda)
+  #geweke.plot(out.coda)
+  zs <-pois.geweke[[1]]
+  z.scores <-unlist (zs['z'])
+  plot(z.scores, main="Geweke Z-scores for all tracked variables in Poisson GLM")
+  
+  if(n.chains > 1)
+  {
+   gelman.srf <-gelman.diag(out.coda)
+   plot(gelman.srf$psrf,main = "Gelman Diagnostic")
+  }
+
+  chains.ess <- lapply(out.coda,effectiveSize)
+  first.chain.ess <- chains.ess[1]
+  plot(unlist(first.chain.ess), main="Effective Sample Size")
+  
+  pval.m <- matrix(nrow = 9,ncol = 2)
+  for(k in 1:9){
+    # Compute the test stats for the data
+    D0   <- c(   mean(X.num[,k]),   sd(X.num[,k]))
+    Dnames <- c("mean Y", "sd Y")
+    # Compute the test stats for the models
+    chain <- out.coda[[1]]
+    D1   <- cbind(chain[,paste("Dm[",k,"]",sep='')],chain[,paste("Dsd[",k,"]",sep='')])
+    pval1 <- rep(0,2)
+    names(pval1)<-Dnames
+
+    for(j in 1:2){
+    pval1[j] <- mean(D1[,j]>D0[j])
+    }
+    pval.m[k,] <- pval1
+  }
+  colnames(pval.m)<-c("pval.mean","pval.sd")
+  pander(data.frame(pval.m), caption = "Baeysian p-values Poisson GLM")
+  
+  
+  ####Predictions Median
+  predictedMedian <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:length(rownames(so$quantiles)) )
+  {
+    rn.so <- rownames(so$quantiles)[i]
+    
+    if(grepl("Yp",rn.so)  )
+    {
+      idx <-gsub('Yp','',rn.so)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      predictedMedian[idi,idj] <- so$quantiles[i,][3]# 50% Quantiles for predicted
+      diff.pred.train[idi,idj] <-  predictedMedian[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  
+  train.mse.median <- sum(diff.pred.train^2)/(41*9)
+  
+  ####Predictions Mode - don't need fancy mode fn since it's count data
+  Mode <- function(x) {
+    ux <- unique(x)
+    ux[which.max(tabulate(match(x, ux)))]
+    }
+  
+  chain <- out.coda[[1]]
+  predictedMode <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train.mode <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:ncol(chain) )
+  {
+    colname <- colnames(chain)[i]
+    if(grepl("Yp",colname)  )
+    {
+      idx <-gsub('Yp','',colname)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      samples <- chain[,i]
+      predictedMode[idi,idj] <- as.numeric(Mode(samples)) 
+      diff.pred.train.mode[idi,idj] <-  predictedMode[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  
+  train.mse.mode <- sum(diff.pred.train.mode^2)/(41*9)
+  
+  ####Predictions Mean
+  chain <- out.coda[[1]]
+  predictedMean <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train.mean <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:ncol(chain) )
+  {
+    colname <- colnames(chain)[i]
+    if(grepl("Yp",colname)  )
+    {
+      idx <-gsub('Yp','',colname)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      samples <- chain[,i]
+      predictedMean[idi,idj] <- as.numeric(mean(samples)) 
+      diff.pred.train.mean[idi,idj] <-  predictedMean[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  train.mse.mean <- sum(diff.pred.train.mean^2)/(41*9)
+  
+  pois.mse <- data.frame(train.mse.mean=train.mse.mean,train.mse.median=train.mse.median,train.mse.mode=train.mse.mode)
+  pander (pois.mse, caption="MSE - via posteriaor mean,median and mode")
+```
+
+# Fit JAGS Negative Binomial Random Effects
+
+```{r}
+####################################### Fit JAGS Negative Binomial Random Effects
+model_nb = '
+model
+{
+    ## Likelihood
+    for(i in 1:N){
+      for(j in 1:9){
+        Y[i,j] ~ dnegbin(p[i,j],r[j])
+        p[i,j] <- r[j]/(r[j]+lambda[i,j]) 
+        log(lambda[i,j]) <- mu[i,j]
+        mu[i,j] <- alpha[j] + beta[j]*t[i]
+      }
+    }
+
+  ## Priors
+  for(i in 1:9){
+    alpha[i] ~ dnorm(0,taus[i])
+    taus[i] ~ dgamma(0.1,0.1)
+  }
+  
+  # Slopes
+  for(i in 1:9){
+    beta[i] ~ dnorm(mu.beta,taus.beta[i])
+    taus.beta[i] ~ dgamma(0.1,0.1)
+  }
+
+  # r
+  for(i in 1:9){
+    r[i] ~ dunif(0,10)
+  }
+
+  ## Posterior Predictive Checks
+  for(i in 1:N){
+    for(j in 1:9){
+        Y2[i,j] ~ dnegbin(p[i,j],r[j])
+    }
+  }
+  
+  for(j in 1:9){
+    Dm[j] <- mean(Y2[,j])
+    Dsd[j] <- sd(Y2[,j])
+  }
+
+  #Prediction
+  for(i in 1:N){
+    for(j in 1:9){
+      Yp[i,j] ~ dnegbin(pp[i,j],r[j])
+      pp[i,j] <- r[j]/(r[j]+lambdap[i,j]) 
+      log(lambdap[i,j]) <- mup[i,j]
+      mup[i,j] <- alpha[j] + beta[j]*t[i]
+    }
+  }
+}
+'
+  # Set up the data
+  model_data = list(N = 41, t=seq(1:41),Y=X.num,mu.beta=0,tau.beta=.0001,mu.intercept=0,tau.intercept=.0001  )
+  # Choose the parameters to watch
+  model_parameters =  c("r","beta", "alpha","Dm","Dsd","Yp")# model_parameters =  c("r")
+  model_nb <- jags.model(textConnection(model_nb),data = model_data,n.chains = n.chains)#Compile Model Graph
+  update(model_nb, nSamples, progress.bar="none"); # Burnin
+  out.coda  <- coda.samples(model_nb, variable.names=model_parameters,n.iter=2*nSamples)
+  #plot(out.coda)
+  
+  coda::acfplot(out.coda[[1]][,'beta[1]'],100)
+  
+  #coda::crosscorr.plot(out.coda[[1]][,'p[1,1]'],out.coda[[1]][,'r[1]'])
+  #coda::crosscorr.plot(out.coda[[1]])
+  
+  slopes.hpd <- matrix(nrow = 9,ncol=2)
+  for(k in 1:9){
+    coef.name <- paste('beta[', k,']', sep='') 
+    inv <- HPDinterval(out.coda[[1]][,coef.name],.95)
+    slopes.hpd[k,]<-inv
+  }
+  colnames(slopes.hpd) <- c("lower","upper")
+  rownames(slopes.hpd) <-city_names
+  pander(data.frame(slopes.hpd), caption = "0.95 HPD Intervals for slopes")
+  
+  #assess the posteriors stationarity, by looking at the Heidelberg-Welch convergence diagnostic:
+  hd <- heidel.diag(out.coda)
+  hdd <- hd[[1]]
+  hd.pass <- hdd[,2]
+  hd.fail <-sum(is.na(hd.pass))
+  pander(data.frame(fail.count = hd.fail), caption ="Fail count for Heidelberger and Welch diagnotic")
+
+  # check that our chains length is satisfactory.
+  #raftery.diag(out.coda) - Indicated 3k so we ran for 40k 
+
+  nb.geweke <- geweke.diag(out.coda)
+  #geweke.plot(out.coda)
+  zs <-nb.geweke[[1]]
+  z.scores <-unlist (zs['z'])
+  plot(z.scores, main="Geweke Z-scores for all tracked variables in Negative Binomial GLM")
+
+  if(n.chains > 1)
+  {
+   gelman.srf <-gelman.diag(out.coda)
+   plot(gelman.srf$psrf,main = "Gelman Diagnostic")
+  }
+
+  chains.ess <- lapply(out.coda,effectiveSize)
+  first.chain.ess <- chains.ess[1]
+  plot(unlist(first.chain.ess), main="Effective Sample Size")
+  
+ pval.m <- matrix(nrow = 9,ncol = 2)
+  for(k in 1:9){
+    # Compute the test stats for the data
+    D0   <- c(   mean(X.num[,k]),   sd(X.num[,k]))
+    Dnames <- c("mean Y", "sd Y")
+    # Compute the test stats for the models
+    chain <- out.coda[[1]]
+    D1   <- cbind(chain[,paste("Dm[",k,"]",sep='')],chain[,paste("Dsd[",k,"]",sep='')])
+    pval1 <- rep(0,2)
+    names(pval1)<-Dnames
+
+    for(j in 1:2){
+    pval1[j] <- mean(D1[,j]>D0[j])
+    }
+    pval.m[k,] <- pval1
+  }
+  colnames(pval.m)<-c("pval.mean","pval.sd")
+  pander(data.frame(pval.m), caption = "Baeysian p-values Poisson GLM")
+
+  ####Predictions Median
+  predictedMedian <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:length(rownames(so$quantiles)) )
+  {
+    rn.so <- rownames(so$quantiles)[i]
+    
+    if(grepl("Yp",rn.so)  )
+    {
+      idx <-gsub('Yp','',rn.so)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      predictedMedian[idi,idj] <- so$quantiles[i,][3]# 50% Quantiles for predicted
+      diff.pred.train[idi,idj] <-  predictedMedian[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  
+  train.mse.median <- sum(diff.pred.train^2)/(41*9)
+  
+  ####Predictions Mode - don't need fancy mode fn since it's count data
+  Mode <- function(x) {
+    ux <- unique(x)
+    ux[which.max(tabulate(match(x, ux)))]
+    }
+  
+  chain <- out.coda[[1]]
+  predictedMode <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train.mode <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:ncol(chain) )
+  {
+    colname <- colnames(chain)[i]
+    if(grepl("Yp",colname)  )
+    {
+      idx <-gsub('Yp','',colname)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      samples <- chain[,i]
+      predictedMode[idi,idj] <- as.numeric(Mode(samples)) 
+      diff.pred.train.mode[idi,idj] <-  predictedMode[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  
+  train.mse.mode <- sum(diff.pred.train.mode^2)/(41*9)
+  
+  ####Predictions Mean
+  chain <- out.coda[[1]]
+  predictedMean <- matrix(nrow = 41,ncol = 9)
+  diff.pred.train.mean <- matrix(nrow = 41,ncol = 9)
+  for( i in 1:ncol(chain) )
+  {
+    colname <- colnames(chain)[i]
+    if(grepl("Yp",colname)  )
+    {
+      idx <-gsub('Yp','',colname)
+      idx <-gsub('\\[','',idx)
+      idx<-gsub('\\]','',idx)
+      strsplit(idx,",")
+      idi <- as.numeric(strsplit(idx,",")[[1]][1])
+      idj <- as.numeric(strsplit(idx,",")[[1]][2])
+      samples <- chain[,i]
+      predictedMean[idi,idj] <- as.numeric(mean(samples)) 
+      diff.pred.train.mean[idi,idj] <-  predictedMean[idi,idj] - X.num[idi,idj]
+      
+    }else{
+      next
+    }
+  }
+  train.mse.mean <- sum(diff.pred.train.mean^2)/(41*9)
+  
+  nb.mse <- data.frame(train.mse.mean=train.mse.mean,train.mse.median=train.mse.median,train.mse.mode=train.mse.mode)
+  pander (nb.mse, caption="MSE - via posteriaor mean,median and mode")
+  
+```
+
+# DIC Calculation
+
+```{r}
+dic_pois  <- dic.samples(model_pois,variable.names=c("beta", "alpha"), n.iter=nSamples, progress.bar="none")
+dic_pois
+dic_nb  <- dic.samples(model_nb,variable.names=c("beta", "alpha"), n.iter=nSamples, progress.bar="none")
+dic_nb
+```
+

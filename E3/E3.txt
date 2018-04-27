@@ -55,3 +55,46 @@ model {
     m ~ dgamma(0.01,0.01)
     v <- r*(1-p)/(p*p)
 }
+
+
+#########################
+
+
+HPD interval is the shortest interval among all of the Bayesian Credible Intervals. 
+
+The “na¨ıve” standard error is the standard error of the mean,which captures simulation error of the mean rather than posterior
+uncertainty.naive SE =posterior SD√n
+
+The time-series standard error adjusts the “na¨ıve” standard error for
+autocorrelation.
+
+One way to see if our chain has converged is to see how well our chain is mixing, or moving around the parameter space. If our chain is taking a long time to move around the parameter space, then it will take longer to converge
+
+Convergence
+Visual Inspection
+Gelman and Rubin Diagnostic - 
+Geweke Diagnostic
+Raftery and Lewis Diagnostic
+Heidelberg and Welch Diagnostic
+
+
+
+Geweke - The Geweke diagnostic takes two nonoverlapping parts (usually
+the first 0.1 and last 0.5 proportions) of the Markov chain and
+compares the means of both parts, using a difference of means test
+to see if the two parts of the chain are from the same distribution
+(null hypothesis).
+The test statistic is a standard Z-score with the standard errors
+adjusted for autocorrelation.
+
+
+
+
+Gelman-Rubin
+Potential Scale Reduction Factor The potential scale reduction factor isRˆ =
+s
+Var ˆ (θ)
+W
+When Rˆ is high (perhaps greater than 1.1 or 1.2), then we should
+run our chains out longer to improve convergence to the stationary
+distribution
