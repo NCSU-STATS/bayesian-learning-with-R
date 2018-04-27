@@ -31,8 +31,17 @@ library(pander)
 setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R/E3")
 load("heatwaves.RData")
 n.chains =2;
-nSamples = 20000
+nSamples = 5000
 load("HWD2.RData")
+
+df<- data.frame(X.num)
+colnames(df)<-city_names
+boxplot(df,las=2, main = "Heatwave yearly count by city")
+
+df<- data.frame(X.sev)
+colnames(df)<-city_names
+boxplot(df,las=2, main = "Heatwave severity by city")
+
 ```
 
 # Fit JAGS Poisson Random Effects
@@ -94,14 +103,38 @@ model
   update(model_pois, nSamples, progress.bar="none"); # Burnin
   out.coda  <- coda.samples(model_pois, variable.names=model_parameters,n.iter=2*nSamples)
   #plot(out.coda)
+  
+  coda::acfplot(out.coda[[1]][,'beta[1]'],100)
+  plot(out.coda[[1]][,'beta[1]'])
+  
+  slopes.hpd <- matrix(nrow = 9,ncol=2)
+  for(k in 1:9){
+    coef.name <- paste('beta[', k,']', sep='') 
+    inv <- HPDinterval(out.coda[[1]][,coef.name],.95)
+    slopes.hpd[k,]<-inv
+  }
+  colnames(slopes.hpd) <- c("lower","upper")
+  rownames(slopes.hpd) <-city_names
+  pander(data.frame(slopes.hpd), caption = "0.95 HPD Intervals for slopes")
+  
   so <-summary(out.coda)
-  #assess the posteriors??? stationarity, by looking at the Heidelberg-Welch convergence diagnostic:
-  heidel.diag(out.coda)
-  # check that our chain???s length is satisfactory.
-  raftery.diag(out.coda)
+  
+  #assess the posteriors stationarity, by looking at the Heidelberg-Welch convergence diagnostic:
+  hd <- heidel.diag(out.coda)
+  hdd <- hd[[1]]
+  hd.pass <- hdd[,2]
+  hd.fail <-sum(is.na(hd.pass))
+  pander(data.frame(fail.count = hd.fail), caption ="Fail count for Heidelberger and Welch diagnotic")
+  
+  # check that our chains length is satisfactory.
+  #raftery.diag(out.coda) - Indicated 3k so we ran for 40k 
 
-  geweke.diag(out.coda)
-
+  pois.geweke <- geweke.diag(out.coda)
+  #geweke.plot(out.coda)
+  zs <-pois.geweke[[1]]
+  z.scores <-unlist (zs['z'])
+  plot(z.scores, main="Geweke Z-scores for all tracked variables in Poisson GLM")
+  
   if(n.chains > 1)
   {
    gelman.srf <-gelman.diag(out.coda)
@@ -141,7 +174,6 @@ model
     
     if(grepl("Yp",rn.so)  )
     {
-      print(rn.so)
       idx <-gsub('Yp','',rn.so)
       idx <-gsub('\\[','',idx)
       idx<-gsub('\\]','',idx)
@@ -156,11 +188,9 @@ model
     }
   }
   
-  train.mse <- sum(diff.pred.train^2)/(41*9)
-  pander (train.mse, caption="training MSE - via posteriaor medians")
+  train.mse.median <- sum(diff.pred.train^2)/(41*9)
   
   ####Predictions Mode - don't need fancy mode fn since it's count data
-  
   Mode <- function(x) {
     ux <- unique(x)
     ux[which.max(tabulate(match(x, ux)))]
@@ -189,10 +219,9 @@ model
     }
   }
   
-  train.mse <- sum(diff.pred.train.mode^2)/(41*9)
-  pander (train.mse, caption="training MSE - via posterior modes")
+  train.mse.mode <- sum(diff.pred.train.mode^2)/(41*9)
   
-   ####Predictions Mean
+  ####Predictions Mean
   chain <- out.coda[[1]]
   predictedMean <- matrix(nrow = 41,ncol = 9)
   diff.pred.train.mean <- matrix(nrow = 41,ncol = 9)
@@ -215,9 +244,10 @@ model
       next
     }
   }
-  train.mse <- sum(diff.pred.train.mean^2)/(41*9)
-  pander (train.mse, caption="training MSE - via posteriaor means")
-
+  train.mse.mean <- sum(diff.pred.train.mean^2)/(41*9)
+  
+  pois.mse <- data.frame(train.mse.mean=train.mse.mean,train.mse.median=train.mse.median,train.mse.mode=train.mse.mode)
+  pander (pois.mse, caption="MSE - via posteriaor mean,median and mode")
 ```
 
 # Fit JAGS Negative Binomial Random Effects
@@ -285,12 +315,37 @@ model
   update(model_nb, nSamples, progress.bar="none"); # Burnin
   out.coda  <- coda.samples(model_nb, variable.names=model_parameters,n.iter=2*nSamples)
   #plot(out.coda)
-  #assess the posteriors??? stationarity, by looking at the Heidelberg-Welch convergence diagnostic:
-  heidel.diag(out.coda)
-  # check that our chain???s length is satisfactory.
-  raftery.diag(out.coda)
+  
+  coda::acfplot(out.coda[[1]][,'beta[1]'],100)
+  
+  #coda::crosscorr.plot(out.coda[[1]][,'p[1,1]'],out.coda[[1]][,'r[1]'])
+  #coda::crosscorr.plot(out.coda[[1]])
+  
+  slopes.hpd <- matrix(nrow = 9,ncol=2)
+  for(k in 1:9){
+    coef.name <- paste('beta[', k,']', sep='') 
+    inv <- HPDinterval(out.coda[[1]][,coef.name],.95)
+    slopes.hpd[k,]<-inv
+  }
+  colnames(slopes.hpd) <- c("lower","upper")
+  rownames(slopes.hpd) <-city_names
+  pander(data.frame(slopes.hpd), caption = "0.95 HPD Intervals for slopes")
+  
+  #assess the posteriors stationarity, by looking at the Heidelberg-Welch convergence diagnostic:
+  hd <- heidel.diag(out.coda)
+  hdd <- hd[[1]]
+  hd.pass <- hdd[,2]
+  hd.fail <-sum(is.na(hd.pass))
+  pander(data.frame(fail.count = hd.fail), caption ="Fail count for Heidelberger and Welch diagnotic")
 
-  geweke.diag(out.coda)
+  # check that our chains length is satisfactory.
+  #raftery.diag(out.coda) - Indicated 3k so we ran for 40k 
+
+  nb.geweke <- geweke.diag(out.coda)
+  #geweke.plot(out.coda)
+  zs <-nb.geweke[[1]]
+  z.scores <-unlist (zs['z'])
+  plot(z.scores, main="Geweke Z-scores for all tracked variables in Negative Binomial GLM")
 
   if(n.chains > 1)
   {
@@ -321,7 +376,7 @@ model
   colnames(pval.m)<-c("pval.mean","pval.sd")
   pander(data.frame(pval.m), caption = "Baeysian p-values Poisson GLM")
 
-    ####Predictions Median
+  ####Predictions Median
   predictedMedian <- matrix(nrow = 41,ncol = 9)
   diff.pred.train <- matrix(nrow = 41,ncol = 9)
   for( i in 1:length(rownames(so$quantiles)) )
@@ -330,7 +385,6 @@ model
     
     if(grepl("Yp",rn.so)  )
     {
-      print(rn.so)
       idx <-gsub('Yp','',rn.so)
       idx <-gsub('\\[','',idx)
       idx<-gsub('\\]','',idx)
@@ -345,11 +399,9 @@ model
     }
   }
   
-  train.mse <- sum(diff.pred.train^2)/(41*9)
-  pander (train.mse, caption="training MSE - via posteriaor medians")
+  train.mse.median <- sum(diff.pred.train^2)/(41*9)
   
   ####Predictions Mode - don't need fancy mode fn since it's count data
-  
   Mode <- function(x) {
     ux <- unique(x)
     ux[which.max(tabulate(match(x, ux)))]
@@ -378,10 +430,9 @@ model
     }
   }
   
-  train.mse <- sum(diff.pred.train.mode^2)/(41*9)
-  pander (train.mse, caption="training MSE - via posterior modes")
+  train.mse.mode <- sum(diff.pred.train.mode^2)/(41*9)
   
-   ####Predictions Mean
+  ####Predictions Mean
   chain <- out.coda[[1]]
   predictedMean <- matrix(nrow = 41,ncol = 9)
   diff.pred.train.mean <- matrix(nrow = 41,ncol = 9)
@@ -404,9 +455,10 @@ model
       next
     }
   }
-  train.mse <- sum(diff.pred.train.mean^2)/(41*9)
-  pander (train.mse, caption="training MSE - via posteriaor means")
-
+  train.mse.mean <- sum(diff.pred.train.mean^2)/(41*9)
+  
+  nb.mse <- data.frame(train.mse.mean=train.mse.mean,train.mse.median=train.mse.median,train.mse.mode=train.mse.mode)
+  pander (nb.mse, caption="MSE - via posteriaor mean,median and mode")
   
 ```
 
