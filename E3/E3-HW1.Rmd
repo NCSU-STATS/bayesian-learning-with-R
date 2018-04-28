@@ -33,7 +33,7 @@ load("heatwaves.RData")
 n.chains =2;
 n.thin =2
 nSamples = 10000
-load("HWD2.RData")
+load("HWD1.RData")
 
 df<- data.frame(X.num)
 colnames(df)<-city_names

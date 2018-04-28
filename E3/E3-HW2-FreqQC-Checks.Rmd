@@ -1,0 +1,92 @@
+---
+title: "E3"
+output: pdf_document
+fontsize: 10pt
+---
+
+```{r setup, include=FALSE,echo=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(dev = 'pdf')
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(tidy=TRUE)
+knitr::opts_chunk$set(prompt=FALSE)
+knitr::opts_chunk$set(fig.height=5)
+knitr::opts_chunk$set(fig.width=6)
+knitr::opts_chunk$set(warning=FALSE)
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_knit$set(root.dir = ".")
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=38),tidy=TRUE)
+library(latex2exp)   
+library(pander)
+library(ggplot2)
+library(GGally)
+```
+
+```{r}
+rm(list = ls())
+library(rjags)
+library(coda)
+library(pander)
+setwd("c:/e/brucebcampbell-git/bayesian-learning-with-R/E3")
+load("heatwaves.RData")
+n.chains =2;
+n.thin =2
+nSamples = 10000
+load("HWD2.RData")
+
+df<- data.frame(X.num)
+colnames(df)<-city_names
+boxplot(df,las=2, main = "Heatwave yearly count by city")
+
+df<- data.frame(X.sev)
+colnames(df)<-city_names
+boxplot(df,las=2, main = "Heatwave severity by city")
+
+```
+```{r}
+################################## Find MLE of fit to pois and negbinom, and fit glm's with time as predictor
+mle.nb.params <- matrix(nrow = 9,ncol = 2)
+mle.pois.params <- matrix(nrow = 9,ncol = 1)
+
+mle.nb.glm.params <- matrix(nrow = 9,ncol = 8)
+mle.pois.glm.params <- matrix(nrow = 9,ncol = 8)
+library(fitdistrplus)   
+library(gamlss)          
+
+for(k in 1:9)
+{
+  print(city_names[k])
+  fit_nb <- fitdist(X.num[,k], 'nbinom', start = list(mu = 3, size = 0.1)) 
+  plot(fit_nb)
+  #gofstat(fit_nb)
+  
+  mle.nb.params[k,1] <- fit_nb$estimate[1]
+  mle.nb.params[k,2] <- fit_nb$estimate[2]
+  
+  fit_pois <- fitdist(X.num[,k], 'pois',method = 'mle')
+  mle.pois.params[k,1] <- fit_pois$estimate[1]
+  plot(fit_pois)
+  #gofstat(fit_pois)
+}
+```
+
+
+```{r}
+################################## Find MLE of fit to pois and negbinom, and fit glm's with time as predictor
+library(fitdistrplus)   
+library(gamlss)          
+
+for(k in 1:9)
+{
+  print(city_names[k])
+
+  df <- data.frame(t=seq(1:41),Y=X.num[,k])
+  model.pois <- glm( Y~ t, family=poisson, df)
+  print(summary(model.pois))
+  #print(model.pois)
+  model.nb <- glm.nb(Y~t,data=df)
+  print(summary(model.nb))
+  #print(model.nb)
+}
+```

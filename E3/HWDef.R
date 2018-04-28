@@ -12,10 +12,10 @@ for(j in 1:365)
   {
     data <- y[1:41,j,k]
     data <- na.exclude(data)
-    DQ[j,k] <- quantile(data,.95)
+    DQ[j,k] <- quantile(data,.90)
   }
 }
-plot(y[1,1:365,1]); lines(DQ[,1],col='red', main = "daily and 95th quantile")
+plot(y[1,1:365,1]); lines(DQ[,1],col='red', main = "daily and 90th quantile")
 
 AboveDQ.Idx <- y
 for(i in 1:41)

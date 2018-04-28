@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.19 (MiKTeX 2.9.6630 64-bit) (preloaded format=pdflatex 2018.3.29)  27 APR 2018 16:58
+This is pdfTeX, Version 3.14159265-2.6-1.40.19 (MiKTeX 2.9.6630 64-bit) (preloaded format=pdflatex 2018.3.29)  28 APR 2018 08:40
 entering extended mode
 **./E3-HW1.tex
 (E3-HW1.tex
@@ -1116,16 +1116,8 @@ Package pdftex.def Info: E3-HW1_files/figure-latex/unnamed-chunk-2-5.pdf  used
 on input line 422.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
 [8 <./E3-HW1_files/figure-latex/unnamed-chunk-2-4.pdf>] [9 <./E3-HW1_files/figu
-re-latex/unnamed-chunk-2-5.pdf>]
-Overfull \vbox (1.66484pt too high) detected at line 599
- []
-
-[10] [11]
-Underfull \vbox (badness 10000) detected at line 698
- []
-
-
-Underfull \vbox (badness 10000) detected at line 698
+re-latex/unnamed-chunk-2-5.pdf>] [10] [11]
+Underfull \vbox (badness 1189) detected at line 721
  []
 
 [12]
@@ -1133,98 +1125,98 @@ Underfull \vbox (badness 10000) detected at line 698
 File: E3-HW1_files/figure-latex/unnamed-chunk-3-1.pdf Graphic file (type pdf)
 <use E3-HW1_files/figure-latex/unnamed-chunk-3-1.pdf>
 Package pdftex.def Info: E3-HW1_files/figure-latex/unnamed-chunk-3-1.pdf  used 
-on input line 722.
+on input line 745.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
-[13 <./E3-HW1_files/figure-latex/unnamed-chunk-3-1.pdf>]
-<E3-HW1_files/figure-latex/unnamed-chunk-3-2.pdf, id=141, 433.62pt x 361.35pt>
+[13] [14 <./E3-HW1_files/figure-latex/unnamed-chunk-3-1.pdf>]
+<E3-HW1_files/figure-latex/unnamed-chunk-3-2.pdf, id=146, 433.62pt x 361.35pt>
 File: E3-HW1_files/figure-latex/unnamed-chunk-3-2.pdf Graphic file (type pdf)
 <use E3-HW1_files/figure-latex/unnamed-chunk-3-2.pdf>
 Package pdftex.def Info: E3-HW1_files/figure-latex/unnamed-chunk-3-2.pdf  used 
-on input line 873.
+on input line 896.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
-[14]
-<E3-HW1_files/figure-latex/unnamed-chunk-3-3.pdf, id=148, 433.62pt x 361.35pt>
+[15]
+<E3-HW1_files/figure-latex/unnamed-chunk-3-3.pdf, id=152, 433.62pt x 361.35pt>
 File: E3-HW1_files/figure-latex/unnamed-chunk-3-3.pdf Graphic file (type pdf)
 <use E3-HW1_files/figure-latex/unnamed-chunk-3-3.pdf>
 Package pdftex.def Info: E3-HW1_files/figure-latex/unnamed-chunk-3-3.pdf  used 
-on input line 885.
+on input line 908.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
-[15 <./E3-HW1_files/figure-latex/unnamed-chunk-3-2.pdf>]
-<E3-HW1_files/figure-latex/unnamed-chunk-3-4.pdf, id=159, 433.62pt x 361.35pt>
+[16 <./E3-HW1_files/figure-latex/unnamed-chunk-3-2.pdf>]
+<E3-HW1_files/figure-latex/unnamed-chunk-3-4.pdf, id=163, 433.62pt x 361.35pt>
 File: E3-HW1_files/figure-latex/unnamed-chunk-3-4.pdf Graphic file (type pdf)
 <use E3-HW1_files/figure-latex/unnamed-chunk-3-4.pdf>
 Package pdftex.def Info: E3-HW1_files/figure-latex/unnamed-chunk-3-4.pdf  used 
-on input line 895.
+on input line 918.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
-[16 <./E3-HW1_files/figure-latex/unnamed-chunk-3-3.pdf>] [17 <./E3-HW1_files/fi
+[17 <./E3-HW1_files/figure-latex/unnamed-chunk-3-3.pdf>] [18 <./E3-HW1_files/fi
 gure-latex/unnamed-chunk-3-4.pdf>]
-Overfull \vbox (1.66484pt too high) detected at line 1072
+Overfull \vbox (1.66484pt too high) detected at line 1095
  []
 
-[18] [19]
-Underfull \vbox (badness 10000) detected at line 1173
+[19] [20]
+Underfull \vbox (badness 10000) detected at line 1196
  []
 
 
-Underfull \vbox (badness 10000) detected at line 1173
+Underfull \vbox (badness 10000) detected at line 1196
  []
 
-[20]
-<E3-HW1_files/figure-latex/unnamed-chunk-4-1.pdf, id=195, 433.62pt x 361.35pt>
+[21]
+<E3-HW1_files/figure-latex/unnamed-chunk-4-1.pdf, id=199, 433.62pt x 361.35pt>
 File: E3-HW1_files/figure-latex/unnamed-chunk-4-1.pdf Graphic file (type pdf)
 <use E3-HW1_files/figure-latex/unnamed-chunk-4-1.pdf>
 Package pdftex.def Info: E3-HW1_files/figure-latex/unnamed-chunk-4-1.pdf  used 
-on input line 1197.
+on input line 1220.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
-[21 <./E3-HW1_files/figure-latex/unnamed-chunk-4-1.pdf>]
-<E3-HW1_files/figure-latex/unnamed-chunk-4-2.pdf, id=205, 433.62pt x 361.35pt>
+[22 <./E3-HW1_files/figure-latex/unnamed-chunk-4-1.pdf>]
+<E3-HW1_files/figure-latex/unnamed-chunk-4-2.pdf, id=209, 433.62pt x 361.35pt>
 File: E3-HW1_files/figure-latex/unnamed-chunk-4-2.pdf Graphic file (type pdf)
 <use E3-HW1_files/figure-latex/unnamed-chunk-4-2.pdf>
 Package pdftex.def Info: E3-HW1_files/figure-latex/unnamed-chunk-4-2.pdf  used 
-on input line 1205.
+on input line 1228.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
-[22 <./E3-HW1_files/figure-latex/unnamed-chunk-4-2.pdf>]
-<E3-HW1_files/figure-latex/unnamed-chunk-4-3.pdf, id=217, 433.62pt x 361.35pt>
+[23 <./E3-HW1_files/figure-latex/unnamed-chunk-4-2.pdf>]
+<E3-HW1_files/figure-latex/unnamed-chunk-4-3.pdf, id=221, 433.62pt x 361.35pt>
 File: E3-HW1_files/figure-latex/unnamed-chunk-4-3.pdf Graphic file (type pdf)
 <use E3-HW1_files/figure-latex/unnamed-chunk-4-3.pdf>
 Package pdftex.def Info: E3-HW1_files/figure-latex/unnamed-chunk-4-3.pdf  used 
-on input line 1355.
+on input line 1378.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
-[23]
-<E3-HW1_files/figure-latex/unnamed-chunk-4-4.pdf, id=223, 433.62pt x 361.35pt>
+[24]
+<E3-HW1_files/figure-latex/unnamed-chunk-4-4.pdf, id=227, 433.62pt x 361.35pt>
 File: E3-HW1_files/figure-latex/unnamed-chunk-4-4.pdf Graphic file (type pdf)
 <use E3-HW1_files/figure-latex/unnamed-chunk-4-4.pdf>
 Package pdftex.def Info: E3-HW1_files/figure-latex/unnamed-chunk-4-4.pdf  used 
-on input line 1367.
+on input line 1390.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
-[24 <./E3-HW1_files/figure-latex/unnamed-chunk-4-3.pdf>]
-<E3-HW1_files/figure-latex/unnamed-chunk-4-5.pdf, id=234, 433.62pt x 361.35pt>
+[25 <./E3-HW1_files/figure-latex/unnamed-chunk-4-3.pdf>]
+<E3-HW1_files/figure-latex/unnamed-chunk-4-5.pdf, id=239, 433.62pt x 361.35pt>
 File: E3-HW1_files/figure-latex/unnamed-chunk-4-5.pdf Graphic file (type pdf)
 <use E3-HW1_files/figure-latex/unnamed-chunk-4-5.pdf>
 Package pdftex.def Info: E3-HW1_files/figure-latex/unnamed-chunk-4-5.pdf  used 
-on input line 1377.
+on input line 1400.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
-[25 <./E3-HW1_files/figure-latex/unnamed-chunk-4-4.pdf>] [26 <./E3-HW1_files/fi
+[26 <./E3-HW1_files/figure-latex/unnamed-chunk-4-4.pdf>] [27 <./E3-HW1_files/fi
 gure-latex/unnamed-chunk-4-5.pdf>]
-Overfull \vbox (1.66484pt too high) detected at line 1554
+Overfull \vbox (1.66484pt too high) detected at line 1577
  []
 
-[27] [28]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 1619.
-[29]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 1619.
+[28] [29]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 1642.
+[30]
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 1642.
 (E3-HW1.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 1619.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 1619.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 1642.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 1642.
 
 Package rerunfilecheck Info: File `E3-HW1.out' has not changed.
 (rerunfilecheck)             Checksum: 4C9A19B25CFCEE03BC74753B6BA5CD1D;835.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 1619.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 1642.
  ) 
 Here is how much of TeX's memory you used:
- 12913 strings out of 493305
- 191376 string characters out of 3129802
- 295892 words of memory out of 3000000
+ 12914 strings out of 493305
+ 191383 string characters out of 3129802
+ 296910 words of memory out of 3000000
  16272 multiletter control sequences out of 15000+200000
  21134 words of font info for 27 fonts, out of 3000000 for 9000
  1141 hyphenation exceptions out of 8191
@@ -1239,9 +1231,9 @@ lic/lm/lmr17.pfb><C:/Users/waves/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/
 public/lm/lmtk10.pfb><C:/Users/waves/AppData/Local/Programs/MiKTeX 2.9/fonts/ty
 pe1/public/lm/lmtt10.pfb><C:/Users/waves/AppData/Local/Programs/MiKTeX 2.9/font
 s/type1/public/lm/lmtti10.pfb>
-Output written on E3-HW1.pdf (29 pages, 562875 bytes).
+Output written on E3-HW1.pdf (30 pages, 915455 bytes).
 PDF statistics:
- 310 PDF objects out of 1000 (max. 8388607)
- 46 named destinations out of 1000 (max. 500000)
+ 314 PDF objects out of 1000 (max. 8388607)
+ 47 named destinations out of 1000 (max. 500000)
  2161 words of extra memory for PDF output out of 10000 (max. 10000000)
 

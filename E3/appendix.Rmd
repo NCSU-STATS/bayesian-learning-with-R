@@ -1,0 +1,123 @@
+---
+title: "Appendix "
+subtitle: "Final Exam"
+author: "Bruce Campbell"
+latex_engine: xelatex
+fontsize: 10pt
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+\newpage 
+# Appendix A Jags Code
+
+##Poisson GLM
+
+```
+model_pois = '
+modela
+{
+    ## Likelihood
+    for(i in 1:N){
+      for(j in 1:9){
+        Y[i,j] ~ dpois(lambda[i,j])
+        log(lambda[i,j]) <- mu[i,j]
+        mu[i,j] <- alpha[j] + beta[j]*t[i] 
+      }
+    }
+
+  ## Priors
+  for(i in 1:9){
+    alpha[i] ~ dnorm(0,taus[i])
+    taus[i] ~ dgamma(0.1,0.1)
+  }
+  
+  # Slopes
+  for(i in 1:9){
+    beta[i] ~ dnorm(mu.beta,taus.beta[i])
+    taus.beta[i] ~ dgamma(0.1,0.1)
+  }
+
+  ## Posterior Predictive Checks
+  for(i in 1:N){
+    for(j in 1:9){
+        Y2[i,j] ~ dpois(lambda[i,j])
+    }
+  }
+  
+  for(j in 1:9){
+    Dm[j] <- mean(Y2[,j])
+    Dsd[j] <- sd(Y2[,j])
+  }
+
+  #Prediction
+  for(i in 1:N){
+    for(j in 1:9){
+      Yp[i,j] ~ dpois(lambdap[i,j])
+      log(lambdap[i,j]) <- mup[i,j]
+      mup[i,j] <- alpha[j] + beta[j]*t[i] 
+    }
+  }
+}
+'
+```
+
+##Negative binomial
+
+```
+model_nb = '
+model
+{
+    ## Likelihood
+    for(i in 1:N){
+      for(j in 1:9){
+        Y[i,j] ~ dnegbin(p[i,j],r[j])
+        p[i,j] <- r[j]/(r[j]+lambda[i,j]) 
+        log(lambda[i,j]) <- mu[i,j]
+        mu[i,j] <- alpha[j] + beta[j]*t[i]
+      }
+    }
+
+  ## Priors
+  for(i in 1:9){
+    alpha[i] ~ dnorm(0,taus[i])
+    taus[i] ~ dgamma(0.1,0.1)
+  }
+  
+  # Slopes
+  for(i in 1:9){
+    beta[i] ~ dnorm(mu.beta,taus.beta[i])
+    taus.beta[i] ~ dgamma(0.1,0.1)
+  }
+
+  # r
+  for(i in 1:9){
+    r[i] ~ dunif(0,10)
+  }
+
+  ## Posterior Predictive Checks
+  for(i in 1:N){
+    for(j in 1:9){
+        Y2[i,j] ~ dnegbin(p[i,j],r[j])
+    }
+  }
+  
+  for(j in 1:9){
+    Dm[j] <- mean(Y2[,j])
+    Dsd[j] <- sd(Y2[,j])
+  }
+
+  #Prediction
+  for(i in 1:N){
+    for(j in 1:9){
+      Yp[i,j] ~ dnegbin(pp[i,j],r[j])
+      pp[i,j] <- r[j]/(r[j]+lambdap[i,j]) 
+      log(lambdap[i,j]) <- mup[i,j]
+      mup[i,j] <- alpha[j] + beta[j]*t[i]
+    }
+  }
+}
+'
+```
