@@ -35,7 +35,7 @@ From the raw temperature data we calculated heat wave counts by year for the 9 c
 
 For the regression models, the log link functions in both models. We use $i$ for the time index - the explanatory variable in our model. The Poisson model is given by $log(E[Y_{t,k}|t]) =\alpha_k + \beta_k t$ where $Y_{t,k} \sim Pois(e^{  \alpha_k + \beta_k t })$. 
 
-The negative binomial model is given by $log(E[Y_{t,k}|t]) =\alpha_k + \beta_k t$.  Now if we let $p_{t,k}$, $r_k$ be the parameters of a negative binomial, $E[Y_{t,k}]=\frac{pr}{1-p}$ after some rearranging we see then that $p_{t,k}=\frac{r_k}{r_k+log(\alpha_k + \beta_k t )}$ and $Y_{t,k} \sim NB(p_{t,k}, r_k)$.  Note we used one $r_k$ per city to account for different dispersions. The priors used fir both modes are below - r is only present in the negative binomial model. 
+The negative binomial model is given by $log(E[Y_{t,k}|t]) =\alpha_k + \beta_k t$.  Now if we let $p_{t,k}$, $r_k$ be the parameters of a negative binomial, $E[Y_{t,k}]=\frac{pr}{1-p}$ after some rearranging we see then that $p_{t,k}=\frac{r_k}{r_k+log(\alpha_k + \beta_k t )}$ and $Y_{t,k} \sim NB(p_{t,k}, r_k)$.  Note we used one $r_k$ per city to account for different dispersions. The priors used for both modes are below - r is only present in the negative binomial model. 
 
 - $\alpha_k  \sim  N(0,\tau_k)$    
 - $\tau_k    \sim  Gamma(0.1,0.1)$ 
@@ -45,18 +45,13 @@ The negative binomial model is given by $log(E[Y_{t,k}|t]) =\alpha_k + \beta_k t
 
 # Model fitting
 
-The parameterization of the binomial given above is motivated by the author of our textbook in a blog posting [http://doingbayesiandataanalysis.blogspot.com/2012/04/negative-binomial-reparameterization.html] where it's noted that direct estimation of $p$ and $r$ causes correlation in the MCMC chains.  We put priors on the mean and $r$ as suggested for the negative binomial.  JAGS code can be found in the Appendix.
+The parameterization of the binomial given above is motivated by the author of our textbook in a blog posting [@DBA-Blog-John-Kruschke] where it's noted that direct estimation of $p$ and $r$ causes correlation in the MCMC chains.  We put priors on the mean and $r$ as suggested for the negative binomial.  JAGS code can be found in the Appendix.
+
 ## Convergence
 
 Once we established working JAGS models, we ran a short run of the chains and calculated the Raftery and Lewis diagnostic.  This is a run length diagnostic intended to provide insight on how long to run a chain.  The diagnostic estimates the number of iterations required to estimate the quantile q to within an accuracy of +/- r with probability p.  We ran the chains for 1000 iteration, and the diagnostic indicated running the chains for 3746 iterations using $q=0.25$, $r = +/- 0.005$, and $p=0.95$. We choose to run the models for 20,000 iterations with a thinning of 2. 
 
-Convergence for the main run of the MCMC nodes was demonstrated through the following diagnostics
-- Visual Inspection
-- Gelman and Rubin Diagnostic
-- Geweke Diagnostic
-- Heidelberg and Welch Diagnostic
-
-We now discuss these and present convergence results for one of the models in Figure 1.  Space does not permit us to display convergence diagrams for all of the models, but they can be recreated by running the code in the GitHub repository at [https://github.com/brucebcampbell/bayesian-learning-with-R/tree/master/E3]. 
+Convergence for the main run of the MCMC nodes was demonstrated through the following diagnostics; visual Inspection, the Gelman and Rubin Diagnostic, the Geweke Diagnostic, and the Heidelberg and Welch Diagnostic.We discuss these below and present convergence results for the Poisson GLM on the WHO heatwave counts.  We inspected convergence plots for all of the coefficient nodes in all of the modesl, and spot checked other nodes.  An example of the plots is given in Figure 1.  Space does not permit us to display convergence diagrams for all of the models, but they can be recreated by running the code in the GitHub repository at [https://github.com/brucebcampbell/bayesian-learning-with-R/tree/master/E3].
 
 ![](report-figs/beta-chains.jpg)
 
@@ -64,7 +59,7 @@ The Gelman Rubin diagnostic tests whether multiple chains have converged to thei
 
 The Geweke diagnostic takes two non-overlapping portions of the MCMC chain and compares the means. The test is a t-test with the standard errors adjusted for auto-correlation. In the figure below we plot the Z-scores for the t-tests. 
 
-The effective sample size (ESS) is a diagnostic describing the sample size of the MCMC chain adjusted for auto-correlation.  Strong auto-correlation reduces the ESS.  We accommodate by running longer chains and increasing the thinning.  The convergence diagnostics for the Poisson GLM model fit to the WMO heatwave count data is displayed in figure 2. We did note that the ESS of some of the chains had a low value.  We subsequently ran the MCMC chain for 100,000 iteration to see if we could get consistent ESS values for all the tracked nodes but we did not. The low ESS was observed on the intercept and slope coefficients of the GLM which do have significant auto-correlation out to lag 15-20 which could explain the low observed ESS values.  We increased the thinning to 10 in order to accommodate the auto-correlation.      
+The effective sample size (ESS) is a diagnostic describing the sample size of the MCMC chain adjusted for auto-correlation.  Auto-correlation reduces the ESS.  The convergence diagnostics for the Poisson GLM model fit to the WMO heatwave count data is displayed in figure 2. We did note that the ESS of some of the chains had a low value.  We subsequently ran the MCMC chain for 100,000 iteration to see if we could get consistent ESS values for all the tracked nodes but we did not. The low ESS was observed on the intercept and slope coefficients of the GLM which do have significant auto-correlation out to lag 15-20 which could explain the low observed ESS values.  We increased the thinning to 10 in order to accommodate the auto-correlation.      
 
 ![](report-figs/dx.jpg)
 
@@ -114,7 +109,7 @@ Table: Significant 0.95 HPD Intervals for slopes for WMO Poisson GLM
 
 ## FIT and DIC
 
-The jags code was instrumented to provide predictions which were used calculate the MSE on the training data. The DIC was also evaluated to compare models. The Poisson is a limiting distribution for the negative Binomial.  The DIC for the 2 models and the training MSE are very close.  We chose the negative binomial model based on its simplicity and slightly lower DIC.  
+The jags code was instrumented to provide predictions which were used calculate the MSE on the training data. The DIC was also evaluated to compare models. The Poisson is a limiting distribution for the negative Binomial.  The DIC for the 2 models and the training MSE are very close.  We would choose the Poisson model based on its simplicity and slightly lower DIC.  
 
 -------------------------------------------
 Deviance For WMO Heat Wave Data
