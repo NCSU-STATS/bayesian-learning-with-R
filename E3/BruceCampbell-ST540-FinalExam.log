@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.19 (MiKTeX 2.9.6630 64-bit) (preloaded format=pdflatex 2018.3.29)  28 APR 2018 13:41
+This is pdfTeX, Version 3.14159265-2.6-1.40.19 (MiKTeX 2.9.6630 64-bit) (preloaded format=pdflatex 2018.3.29)  29 APR 2018 11:37
 entering extended mode
 **./BruceCampbell-ST540-FinalExam.tex
 (BruceCampbell-ST540-FinalExam.tex
@@ -1023,33 +1023,33 @@ G,.JBIG2,.JB2,.eps]
 ) [1
 
 {C:/Users/waves/AppData/Local/MiKTeX/2.9/pdftex/config/pdftex.map}]
-LaTeX Font Info:    Try loading font information for OT1+lmr on input line 116.
+LaTeX Font Info:    Try loading font information for OT1+lmr on input line 117.
 
 ("C:\Users\waves\AppData\Local\Programs\MiKTeX 2.9\tex\latex\lm\ot1lmr.fd"
 File: ot1lmr.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-LaTeX Font Info:    Try loading font information for OML+lmm on input line 116.
+LaTeX Font Info:    Try loading font information for OML+lmm on input line 117.
 
 ("C:\Users\waves\AppData\Local\Programs\MiKTeX 2.9\tex\latex\lm\omllmm.fd"
 File: omllmm.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-LaTeX Font Info:    Try loading font information for OMS+lmsy on input line 116
+LaTeX Font Info:    Try loading font information for OMS+lmsy on input line 117
 .
 ("C:\Users\waves\AppData\Local\Programs\MiKTeX 2.9\tex\latex\lm\omslmsy.fd"
 File: omslmsy.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-LaTeX Font Info:    Try loading font information for OMX+lmex on input line 116
+LaTeX Font Info:    Try loading font information for OMX+lmex on input line 117
 .
 ("C:\Users\waves\AppData\Local\Programs\MiKTeX 2.9\tex\latex\lm\omxlmex.fd"
 File: omxlmex.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10.95> on input line 116.
+(Font)              <10.95> on input line 117.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 116.
+(Font)              <8> on input line 117.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 116.
-LaTeX Font Info:    Try loading font information for U+msa on input line 116.
+(Font)              <6> on input line 117.
+LaTeX Font Info:    Try loading font information for U+msa on input line 117.
 ("C:\Users\waves\AppData\Local\Programs\MiKTeX 2.9\tex\latex\amsfonts\umsa.fd"
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
@@ -1057,7 +1057,7 @@ File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 fg"
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
-LaTeX Font Info:    Try loading font information for U+msb on input line 116.
+LaTeX Font Info:    Try loading font information for U+msb on input line 117.
 ("C:\Users\waves\AppData\Local\Programs\MiKTeX 2.9\tex\latex\amsfonts\umsb.fd"
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
@@ -1065,52 +1065,57 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 fg"
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
-LaTeX Font Info:    Try loading font information for TS1+lmr on input line 138.
+LaTeX Font Info:    Try loading font information for TS1+lmr on input line 139.
 
 ("C:\Users\waves\AppData\Local\Programs\MiKTeX 2.9\tex\latex\lm\ts1lmr.fd"
 File: ts1lmr.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-Underfull \hbox (badness 10000) in paragraph at lines 138--140
+Underfull \hbox (badness 10000) in paragraph at lines 139--141
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 142--144
+Underfull \hbox (badness 10000) in paragraph at lines 143--145
 
  []
 
 [2]
-<report-figs/beta-chains.jpg, id=58, 866.23625pt x 398.15416pt>
+<report-figs/beta-chains.jpg, id=54, 856.86792pt x 366.70334pt>
 File: report-figs/beta-chains.jpg Graphic file (type jpg)
 <use report-figs/beta-chains.jpg>
-Package pdftex.def Info: report-figs/beta-chains.jpg  used on input line 183.
-(pdftex.def)             Requested size: 469.75648pt x 215.91742pt.
+Package pdftex.def Info: report-figs/beta-chains.jpg  used on input line 187.
+(pdftex.def)             Requested size: 469.76215pt x 201.03838pt.
 [3 <./report-figs/beta-chains.jpg>]
-<report-figs/dx.jpg, id=64, 1258.7025pt x 351.98167pt>
+<report-figs/dx.jpg, id=60, 1258.7025pt x 351.98167pt>
 File: report-figs/dx.jpg Graphic file (type jpg)
 <use report-figs/dx.jpg>
-Package pdftex.def Info: report-figs/dx.jpg  used on input line 211.
+Package pdftex.def Info: report-figs/dx.jpg  used on input line 215.
 (pdftex.def)             Requested size: 469.74594pt x 131.35904pt.
-[4 <./report-figs/dx.jpg>] [5]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 459.
+[4 <./report-figs/dx.jpg>]
+LaTeX Font Info:    Try loading font information for T1+lmtt on input line 417.
+
+("C:\Users\waves\AppData\Local\Programs\MiKTeX 2.9\tex\latex\lm\t1lmtt.fd"
+File: t1lmtt.fd 2009/10/30 v1.6 Font defs for Latin Modern
+) [5]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 454.
 [6]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 459.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 454.
 (BruceCampbell-ST540-FinalExam.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 459.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 459.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 454.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 454.
 Package rerunfilecheck Info: File `BruceCampbell-ST540-FinalExam.out' has not c
 hanged.
-(rerunfilecheck)             Checksum: D40633133ED235C5F2E3F67489E705B0;1120.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 459.
+(rerunfilecheck)             Checksum: AC8F1FE9109D46A0C4CFE39418888E0F;957.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 454.
  ) 
 Here is how much of TeX's memory you used:
- 12502 strings out of 493305
- 184177 string characters out of 3129802
- 282252 words of memory out of 3000000
- 15779 multiletter control sequences out of 15000+200000
- 50418 words of font info for 82 fonts, out of 3000000 for 9000
+ 12553 strings out of 493305
+ 184993 string characters out of 3129802
+ 282245 words of memory out of 3000000
+ 15818 multiletter control sequences out of 15000+200000
+ 56966 words of font info for 88 fonts, out of 3000000 for 9000
  1141 hyphenation exceptions out of 8191
- 32i,6n,38p,282b,342s stack positions out of 5000i,500n,10000p,200000b,50000s
+ 32i,7n,38p,272b,342s stack positions out of 5000i,500n,10000p,200000b,50000s
 {C:/Users/waves/AppData/Local/Programs/MiKTeX 2.9/fonts/enc/dvips/lm/lm-ec.en
 c}{C:/Users/waves/AppData/Local/Programs/MiKTeX 2.9/fonts/enc/dvips/lm/lm-ts1.e
 nc}{C:/Users/waves/AppData/Local/Programs/MiKTeX 2.9/fonts/enc/dvips/lm/lm-math
@@ -1129,10 +1134,11 @@ KTeX 2.9/fonts/type1/public/lm/lmr8.pfb><C:/Users/waves/AppData/Local/Programs/
 MiKTeX 2.9/fonts/type1/public/lm/lmri10.pfb><C:/Users/waves/AppData/Local/Progr
 ams/MiKTeX 2.9/fonts/type1/public/lm/lmri12.pfb><C:/Users/waves/AppData/Local/P
 rograms/MiKTeX 2.9/fonts/type1/public/lm/lmsy10.pfb><C:/Users/waves/AppData/Loc
-al/Programs/MiKTeX 2.9/fonts/type1/public/lm/lmsy8.pfb>
-Output written on BruceCampbell-ST540-FinalExam.pdf (6 pages, 1068935 bytes).
+al/Programs/MiKTeX 2.9/fonts/type1/public/lm/lmsy8.pfb><C:/Users/waves/AppData/
+Local/Programs/MiKTeX 2.9/fonts/type1/public/lm/lmtt10.pfb>
+Output written on BruceCampbell-ST540-FinalExam.pdf (6 pages, 1070428 bytes).
 PDF statistics:
  151 PDF objects out of 1000 (max. 8388607)
- 26 named destinations out of 1000 (max. 500000)
- 10315 words of extra memory for PDF output out of 12000 (max. 10000000)
+ 25 named destinations out of 1000 (max. 500000)
+ 10307 words of extra memory for PDF output out of 12000 (max. 10000000)
 

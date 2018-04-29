@@ -29,7 +29,7 @@ library(GGally)
 \newpage 
 
 ##Model Definitions
-In this report we detail a Bayesian analysis of temperature data to test if the distribution of heatwaves in the American Southwest has temporal dependence. We investigated a number of heat wave indices and found 2 common ones used in climate studies.  The World Meteorological Organization (WMO) is specific in its definition by stating that a heat wave is when the daily temperature for more than five consecutive days exceeds the average temperature by 9 degrees F.  There are other definitions used in climate research -  for example the TX90P and WSDI - which take a quantile approach and look for windows of days exceeding the 90th quantile of temperature. These indices and links to further definitions can be found in [@Workshop-Enhancing-ClimateIndices].  In this work we use the WMO definition and a variant of the TX90P that can be found in [@1748-9326-12-7-074017].
+In this report we detail a Bayesian analysis of temperature data to test if the distribution of heatwaves in the American Southwest has temporal dependence. We investigated a number of heat wave indices and found 2 common ones used in climate studies.  The World Meteorological Organization (WMO) is specific in its definition by stating that a heat wave is when the daily temperature for more than five consecutive days exceeds the average temperature by 9 degrees F.  There are other definitions used in climate research -  for example the TX90P and WSDI - which take a quantile approach and look for windows of days exceeding the 90th quantile of temperature. These indices and links to further definitions can be found in [@Workshop-Enhancing-ClimateIndices].  In this work we use the WMO definition and a variant of the quntile method TX90P that can be found in [@1748-9326-12-7-074017] and uses a window of five days above the quantile to define a heat wave.  
 
 From the raw temperature data we calculated heat wave counts by year for the 9 cities in the data set.  Recent climate research [@Lau-Nath-2012] indicates that changes in high temperature are primarily seen by a shift in mean and not in higher moments.  This leads us to consider the GLM family of models.  We investigated Poisson and negative binomial models for this analysis.  These random variables are invariant in distribution family under taking sums so we first fit models to the 41 yearly counts for each city $Y_{. k} \sim Pois(\lambda)$, $Y_{. k} \sim NB(\lambda)$.  After considering the these fits, we proceeded to fit the Poisson and negative binomial regression models for identifying trends over time. 
 
@@ -43,15 +43,13 @@ The negative binomial model is given by $log(E[Y_{t,k}|t]) =\alpha_k + \beta_k t
 - $\nu_k     \sim  Gamma(0.1,0.1)$ 
 - $r_k       \sim  Uniform(0,10)$ 
 
-# Model fitting
-
-The parameterization of the binomial given above is motivated by the author of our textbook in a blog posting [@DBA-Blog-John-Kruschke] where it's noted that direct estimation of $p$ and $r$ causes correlation in the MCMC chains.  We put priors on the mean and $r$ as suggested for the negative binomial.  JAGS code can be found in the Appendix.
+The parameterization of the binomial given above is motivated by the author of our textbook in a blog posting [@DBA-Blog-John-Kruschke] where it's noted that direct estimation of $p$ and $r$ causes correlation in the MCMC chains.  We put priors on the mean and $r$ as suggested for the negative binomial.  JAGS code can be found in the Appendix.  
 
 ## Convergence
 
-Once we established working JAGS models, we ran a short run of the chains and calculated the Raftery and Lewis diagnostic.  This is a run length diagnostic intended to provide insight on how long to run a chain.  The diagnostic estimates the number of iterations required to estimate the quantile q to within an accuracy of +/- r with probability p.  We ran the chains for 1000 iteration, and the diagnostic indicated running the chains for 3746 iterations using $q=0.25$, $r = +/- 0.005$, and $p=0.95$. We choose to run the models for 20,000 iterations with a thinning of 2. 
+Once we established working JAGS models, we ran a short run of the chains and calculated the Raftery and Lewis diagnostic.  This is a run length diagnostic intended to provide insight on how long to run a chain.  The diagnostic estimates the number of iterations required to estimate the quantile q to within an accuracy of +/- r with probability p.  We ran the chains for 1000 iteration, and the diagnostic indicated running the chains for 3746 iterations using $q=0.25$, $r = +/- 0.005$, and $p=0.95$. We choose to run the models for 20,000 iterations with a thinning of 2. We noted during the initial runs that one of the cities which had significant slopes in $\alpha_k+\beta_k t$ was more northerly so we added a third model for cosideration which was a Poisson GLM with an added a term for lattitude. 
 
-Convergence for the main run of the MCMC nodes was demonstrated through the following diagnostics; visual Inspection, the Gelman and Rubin Diagnostic, the Geweke Diagnostic, and the Heidelberg and Welch Diagnostic.We discuss these below and present convergence results for the Poisson GLM on the WHO heatwave counts.  We inspected convergence plots for all of the coefficient nodes in all of the modesl, and spot checked other nodes.  An example of the plots is given in Figure 1.  Space does not permit us to display convergence diagrams for all of the models, but they can be recreated by running the code in the GitHub repository at [https://github.com/brucebcampbell/bayesian-learning-with-R/tree/master/E3].
+Convergence for the main run of the MCMC nodes was demonstrated through the following diagnostics; visual Inspection, the Gelman and Rubin Diagnostic, the Geweke Diagnostic, and the Heidelberg and Welch Diagnostic.We discuss these below and present convergence results for the Poisson GLM on the WHO heatwave counts.  This model has the lowest penalized DIC for both definitions of heat wave; we present the DIC results below after discussing convergence. We inspected convergence plots for all of the coefficient nodes in all of the models, and spot checked other nodes.  An example of the plots is given in Figure 1.  Space does not permit us to display convergence diagrams for all of the models, but they can be recreated by running the code in the GitHub repository at [https://github.com/brucebcampbell/bayesian-learning-with-R/tree/master/E3].
 
 ![](report-figs/beta-chains.jpg)
 
@@ -95,7 +93,7 @@ We instrumented the JAGS code to perform posterior predictive checks.  We simula
 \newpage
 ##HPD for slopes
 
-We present the 0.95% HPD intervals for $\beta_k$ that are significant for a positive slope- i.e. do not contain zero in the 95% HPD interval and both endpoints are positive.  Both the Poisson and negative binomial models gave the same significant cities for both of our heat wave indices.  One of the four models we built had a negative association for Albuquerque.  The Poisson model for the quantile version of the heat wave feature was significant for a negative association with heatwaves over time for that city. 
+We present the 0.95% HPD intervals for $\beta_k$ that are significant for a positive slope- i.e. do not contain zero in the 95% HPD interval and both endpoints are positive.  Both the Poisson and negative binomial models gave the same significant cities for both of our heat wave indices.  One of the four models we built had a negative association for Albuquerque.  The Poisson model for the quantile version of the heat wave feature was significant for a negative association with heatwaves over time for that city. Tucson had the strongest relationship between heatwaves and time.
 
 -------------------------------------------
        City           lower      upper   
@@ -109,29 +107,22 @@ Table: Significant 0.95 HPD Intervals for slopes for WMO Poisson GLM
 
 ## FIT and DIC
 
-The jags code was instrumented to provide predictions which were used calculate the MSE on the training data. The DIC was also evaluated to compare models. The Poisson is a limiting distribution for the negative Binomial.  The DIC for the 2 models and the training MSE are very close.  We would choose the Poisson model based on its simplicity and slightly lower DIC.  
+The jags code was instrumented to provide predictions which were used calculate the MSE on the training data. The DIC was also evaluated to compare models. The Poisson is a limiting distribution for the negative Binomial.  The DIC for the 2 models and the training MSE are very close.  We would choose the Poisson model with linear predictor $\alpha_k+\beta_k t$ based on its simplicity (fewer model parameters) and lower DIC.  
 
--------------------------------------------
-Deviance For WMO Heat Wave Data
--------------------------------------------
-Poisson Mean deviance:  957.4 
 
-Poisson penalty 16.68 
+|Model | Penalized deviance | Training MSE |
+|---|---|---|
+|Poisson GLM $\alpha_k+\beta_k t$                 |          974.1  | 1.106 |
+|negative binomial GLM $\alpha_k +\beta_k t$      |         976.9 | 1.109 |
+|Poisson GLM $\alpha_k+\textrm{lattitude}_k+\beta_k t$ |      975 | 1.108 |
 
-Poisson Penalized deviance: 974.1 
-
-negative binomial Mean deviance:  957.6 
-
-negative binomial penalty 19.26 
-
-negative binomial Penalized deviance: 976.9 
--------------------------------------------
+Table: WMO Heat Wave Data model comparison diagnostics
 
 ## Additional model considerations
 
 Other models were investigated as well that could form a follow on analysis.  The Zero Inflated Poisson model (ZIP) and a Bayesian change point model were experimented with.  The ZIP model is used when the zero count is too high for a Poisson model. The distribution is described by a random sum of Bernoulli and Poisson random variables where a zero draw from the Bernoulli results in no contribution from the Poisson. The change point model attempts to find the location where a count process changes. $Y_{t,k} \sim Pois(\lambda_1) \; \forall t \in 1:n$, $Y_{t,k} \sim Pois(\lambda_2) \; \forall t \in n+1:T$ and $n \sim Uniform(1, \dots , T)$.  
 
-We noted that the 2 cities that were significant for a positive slop in the GLM were more northern than the other cities in the data.  We attempted to add latitude as a predictor in the GLM, but the coefficients for that feature did not come out significant.
+Our models were checked by frequentist methods using R's ```stats::glm``` for the Poisson models and ```MASS::glm.nb``` for the negative binomial models.  No discrepencies were noted. 
 
 \newpage 
 

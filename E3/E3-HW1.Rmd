@@ -464,7 +464,6 @@ model
   
 ```
 
-
 # Fit JAGS Poisson GLM With Lattitude
 
 ```{r }

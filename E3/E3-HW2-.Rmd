@@ -472,7 +472,7 @@ model
 lattitude<- c(33.4484,39.7392,36.1699,35.0844,32.2226,40.7608,34.0522,37.7749,32.7157)
 lattitude<- as.vector(scale(lattitude))
 ####################################### Fit JAGS Poisson 
-model_pois = '
+model_pois_lattitude = '
 model
 {
     ## Likelihood
@@ -529,9 +529,9 @@ model
   model_data = list(N = 41, t=seq(1:41),Y=X.num,lattitude=lattitude  )
   # Choose the parameters to watch
   model_parameters =  c("beta", "alpha","gamma","Dm", "Dsd", "Yp")
-  model_pois <- jags.model(textConnection(model_pois),data = model_data,n.chains = n.chains)#Compile Model Graph
-  update(model_pois, nSamples, progress.bar="none"); # Burnin
-  out.coda  <- coda.samples(model_pois, variable.names=model_parameters,n.iter=2*nSamples,,n.thin=2)
+  model_pois_lattitude <- jags.model(textConnection(model_pois_lattitude),data = model_data,n.chains = n.chains)#Compile Model Graph
+  update(model_pois_lattitude, nSamples, progress.bar="none"); # Burnin
+  out.coda  <- coda.samples(model_pois_lattitude, variable.names=model_parameters,n.iter=2*nSamples,,n.thin=2)
   #plot(out.coda)
   
   coda::acfplot(out.coda[[1]][,'beta[1]'],100)
@@ -592,7 +592,7 @@ model
     pval.m[k,] <- pval1
   }
   colnames(pval.m)<-c("pval.mean","pval.sd")
-  pander(data.frame(pval.m), caption = "Baeysian p-values Poisson GLM")
+  pander(data.frame(pval.m), caption = "Baeysian p-values Poisson Lattitude GLM")
   
   
   ####Predictions Median
@@ -684,9 +684,14 @@ model
 # DIC Calculation
 
 ```{r}
+df<-cbind(lattitude,city_names)
+
 dic_pois  <- dic.samples(model_pois,variable.names=c("beta", "alpha"), n.iter=nSamples, progress.bar="none")
 dic_pois
 dic_nb  <- dic.samples(model_nb,variable.names=c("beta", "alpha"), n.iter=nSamples, progress.bar="none")
 dic_nb
+
+dic_pois_lattitude  <- dic.samples(model_pois_lattitude,variable.names=c("beta", "alpha"), n.iter=nSamples, progress.bar="none")
+dic_pois_lattitude
 ```
 
